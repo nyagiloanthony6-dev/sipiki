@@ -1,0 +1,354 @@
+// ============================================================================
+// Prisma schema — mirrors database/schema.sql
+// Run `npx prisma migrate dev` to apply, `npx prisma generate` to build client
+// ============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  customer
+  vendor
+  admin
+}
+
+enum VendorStatus {
+  pending
+  active
+  suspended
+  rejected
+}
+
+enum DocumentType {
+  owner_id
+  business_license
+  tin_certificate
+}
+
+enum OrderStatus {
+  pending
+  paid
+  processing
+  shipped
+  delivered
+  cancelled
+  refunded
+}
+
+enum PaymentStatus {
+  requires_payment
+  succeeded
+  failed
+  refunded
+  partially_refunded
+}
+
+enum PayoutStatus {
+  pending
+  in_transit
+  paid
+  failed
+}
+
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  passwordHash  String    @map("password_hash")
+  fullName      String    @map("full_name")
+  role          UserRole  @default(customer)
+  emailVerified Boolean   @default(false) @map("email_verified")
+  avatarUrl     String?   @map("avatar_url")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+  deletedAt     DateTime? @map("deleted_at")
+
+  vendor         Vendor?  @relation("VendorUser")
+  reviewedVendors Vendor[] @relation("VendorReviewer")
+  statusChanges  VendorStatusHistory[]
+  cart    Cart?
+  orders  Order[]
+  reviews Review[]
+
+  @@map("users")
+}
+
+model Vendor {
+  id                    String       @id @default(uuid())
+  userId                String       @unique @map("user_id")
+  storeName             String       @map("store_name")
+  storeSlug             String       @unique @map("store_slug")
+  storeDescription      String?      @map("store_description")
+  status                VendorStatus @default(pending)
+  stripeAccountId       String?      @unique @map("stripe_account_id")
+  stripeOnboardingDone  Boolean      @default(false) @map("stripe_onboarding_done")
+  commissionRate        Decimal      @default(10.00) @map("commission_rate")
+
+  // ---- Onboarding (migration 002) ----
+  applicationRef        String?      @unique @map("application_ref")
+  businessType          String?      @map("business_type")
+  region                String?
+  location              String?
+  categories            String[]     @default([])
+  ownerPhone            String?      @map("owner_phone")
+  tin                   String?      @unique
+  nidaNumberEncrypted   String?      @map("nida_number_encrypted")
+  payoutProvider        String?      @map("payout_provider")
+  payoutPhone           String?      @map("payout_phone")
+  payoutAccountName     String?      @map("payout_account_name")
+  rejectionReason       String?      @map("rejection_reason")
+  suspensionReason      String?      @map("suspension_reason")
+  reviewedBy            String?      @map("reviewed_by")
+  reviewedAt            DateTime?    @map("reviewed_at")
+
+  createdAt             DateTime     @default(now()) @map("created_at")
+  updatedAt             DateTime     @updatedAt @map("updated_at")
+
+  user       User          @relation("VendorUser", fields: [userId], references: [id], onDelete: Cascade)
+  reviewer   User?         @relation("VendorReviewer", fields: [reviewedBy], references: [id])
+  products   Product[]
+  orderItems OrderItem[]
+  payouts    VendorPayout[]
+  documents  VendorDocument[]
+  history    VendorStatusHistory[]
+  smsLogs    SmsLog[]
+
+  @@map("vendors")
+}
+
+model Category {
+  id        String     @id @default(uuid())
+  parentId  String?    @map("parent_id")
+  name      String
+  slug      String     @unique
+  createdAt DateTime   @default(now()) @map("created_at")
+
+  parent   Category?  @relation("CategoryToCategory", fields: [parentId], references: [id])
+  children Category[] @relation("CategoryToCategory")
+  products Product[]
+
+  @@map("categories")
+}
+
+model Product {
+  id             String    @id @default(uuid())
+  vendorId       String    @map("vendor_id")
+  categoryId     String?   @map("category_id")
+  title          String
+  slug           String    @unique
+  description    String?
+  priceCents     Int       @map("price_cents")
+  currency       String    @default("USD")
+  stockQuantity  Int       @default(0) @map("stock_quantity")
+  isActive       Boolean   @default(true) @map("is_active")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  deletedAt      DateTime? @map("deleted_at")
+
+  vendor     Vendor         @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  category   Category?      @relation(fields: [categoryId], references: [id])
+  images     ProductImage[]
+  tags       ProductTag[]
+  reviews    Review[]
+  cartItems  CartItem[]
+  orderItems OrderItem[]
+
+  @@map("products")
+}
+
+model ProductImage {
+  id        String @id @default(uuid())
+  productId String @map("product_id")
+  url       String
+  position  Int    @default(0)
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@map("product_images")
+}
+
+model Tag {
+  id       String       @id @default(uuid())
+  name     String       @unique
+  products ProductTag[]
+
+  @@map("tags")
+}
+
+model ProductTag {
+  productId String @map("product_id")
+  tagId     String @map("tag_id")
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  tag     Tag     @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([productId, tagId])
+  @@map("product_tags")
+}
+
+model Review {
+  id        String   @id @default(uuid())
+  productId String   @map("product_id")
+  userId    String   @map("user_id")
+  rating    Int
+  comment   String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, userId])
+  @@map("reviews")
+}
+
+model Cart {
+  id        String   @id @default(uuid())
+  userId    String   @unique @map("user_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user  User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items CartItem[]
+
+  @@map("carts")
+}
+
+model CartItem {
+  id        String   @id @default(uuid())
+  cartId    String   @map("cart_id")
+  productId String   @map("product_id")
+  quantity  Int
+  createdAt DateTime @default(now()) @map("created_at")
+
+  cart    Cart    @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([cartId, productId])
+  @@map("cart_items")
+}
+
+model Order {
+  id                String      @id @default(uuid())
+  userId            String      @map("user_id")
+  status            OrderStatus @default(pending)
+  subtotalCents     Int         @map("subtotal_cents")
+  platformFeeCents  Int         @default(0) @map("platform_fee_cents")
+  totalCents        Int         @map("total_cents")
+  currency          String      @default("USD")
+  shippingAddress   Json        @map("shipping_address")
+  createdAt         DateTime    @default(now()) @map("created_at")
+  updatedAt         DateTime    @updatedAt @map("updated_at")
+
+  user         User           @relation(fields: [userId], references: [id])
+  items        OrderItem[]
+  transactions Transaction[]
+  payouts      VendorPayout[]
+
+  @@map("orders")
+}
+
+model OrderItem {
+  id                 String      @id @default(uuid())
+  orderId            String      @map("order_id")
+  productId          String      @map("product_id")
+  vendorId           String      @map("vendor_id")
+  quantity           Int
+  unitPriceCents     Int         @map("unit_price_cents")
+  subtotalCents      Int         @map("subtotal_cents")
+  fulfillmentStatus  OrderStatus @default(pending) @map("fulfillment_status")
+
+  order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
+  vendor  Vendor  @relation(fields: [vendorId], references: [id])
+
+  @@map("order_items")
+}
+
+model Transaction {
+  id                     String        @id @default(uuid())
+  orderId                String        @map("order_id")
+  stripePaymentIntentId  String        @unique @map("stripe_payment_intent_id")
+  amountCents            Int           @map("amount_cents")
+  currency               String        @default("USD")
+  status                 PaymentStatus @default(requires_payment)
+  createdAt              DateTime      @default(now()) @map("created_at")
+  updatedAt              DateTime      @updatedAt @map("updated_at")
+
+  order   Order          @relation(fields: [orderId], references: [id])
+  payouts VendorPayout[]
+
+  @@map("transactions")
+}
+
+model VendorPayout {
+  id                 String       @id @default(uuid())
+  vendorId           String       @map("vendor_id")
+  orderId            String       @map("order_id")
+  transactionId      String       @map("transaction_id")
+  grossAmountCents   Int          @map("gross_amount_cents")
+  platformFeeCents   Int          @map("platform_fee_cents")
+  netAmountCents     Int          @map("net_amount_cents")
+  stripeTransferId   String?      @unique @map("stripe_transfer_id")
+  status             PayoutStatus @default(pending)
+  createdAt          DateTime     @default(now()) @map("created_at")
+  updatedAt          DateTime     @updatedAt @map("updated_at")
+
+  vendor      Vendor      @relation(fields: [vendorId], references: [id])
+  order       Order       @relation(fields: [orderId], references: [id])
+  transaction Transaction @relation(fields: [transactionId], references: [id])
+
+  @@map("vendor_payouts")
+}
+
+model VendorDocument {
+  id           String       @id @default(uuid())
+  vendorId     String       @map("vendor_id")
+  type         DocumentType
+  originalName String       @map("original_name")
+  storageKey   String       @map("storage_key")
+  mimeType     String       @map("mime_type")
+  sizeBytes    Int          @map("size_bytes")
+  createdAt    DateTime     @default(now()) @map("created_at")
+
+  vendor Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@unique([vendorId, type])
+  @@map("vendor_documents")
+}
+
+model VendorStatusHistory {
+  id         String        @id @default(uuid())
+  vendorId   String        @map("vendor_id")
+  fromStatus VendorStatus? @map("from_status")
+  toStatus   VendorStatus  @map("to_status")
+  reason     String?
+  changedBy  String?       @map("changed_by")
+  createdAt  DateTime      @default(now()) @map("created_at")
+
+  vendor Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  admin  User?  @relation(fields: [changedBy], references: [id])
+
+  @@index([vendorId, createdAt])
+  @@map("vendor_status_history")
+}
+
+model SmsLog {
+  id               String   @id @default(uuid())
+  vendorId         String?  @map("vendor_id")
+  toPhone          String   @map("to_phone")
+  template         String
+  message          String
+  provider         String
+  success          Boolean
+  providerResponse String?  @map("provider_response")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  vendor Vendor? @relation(fields: [vendorId], references: [id], onDelete: SetNull)
+
+  @@map("sms_logs")
+}
