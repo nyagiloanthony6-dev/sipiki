@@ -1,6 +1,6 @@
 -- ============================================================================
 -- 002 — VENDOR ONBOARDING (business registration + admin approval)
--- Apply after schema.sql. Adds the business/owner/payout fields collected by
+-- Applied automatically after 001_initial_schema.sql (see scripts/migrate.js). Adds the business/owner/payout fields collected by
 -- the registration wizard, document storage, a status audit trail, and an SMS log.
 -- ============================================================================
 

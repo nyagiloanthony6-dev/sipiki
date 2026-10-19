@@ -18,6 +18,14 @@ if (process.env.JWT_SECRET.length < 32) {
   process.exit(1);
 }
 
+// On Railway the container's own disk is wiped on every deploy. Uploaded verification documents must live on an
+// attached Volume (Railway sets RAILWAY_VOLUME_MOUNT_PATH when one exists) — refuse to start rather than silently lose them.
+const onRailway = Boolean(process.env.RAILWAY_ENVIRONMENT || process.env.RAILWAY_ENVIRONMENT_NAME || process.env.RAILWAY_PROJECT_ID);
+if (onRailway && !process.env.RAILWAY_VOLUME_MOUNT_PATH && !process.env.UPLOAD_DIR) {
+  console.error('No Volume is attached. Add a Volume to this Railway service (mount path /data) so uploaded documents survive deploys.');
+  process.exit(1);
+}
+
 const authRoutes = require('./routes/auth.routes');
 const vendorRoutes = require('./routes/vendor.routes');
 const adminRoutes = require('./routes/admin.routes');
@@ -28,11 +36,15 @@ const cartRoutes = require('./routes/cart.routes');
 
 const app = express();
 
-// Behind a proxy (Vercel / Render / nginx) the rate limiter needs the real client IP
-if (process.env.TRUST_PROXY) app.set('trust proxy', Number(process.env.TRUST_PROXY));
+// A proxy sits in front of the app on Railway/Vercel/Render/nginx. Without this the rate limiter sees the proxy's IP
+// for every visitor, so everyone would share one login/registration quota. Railway has one proxy hop.
+const proxyHops = process.env.TRUST_PROXY || (onRailway ? '1' : '');
+if (proxyHops) app.set('trust proxy', Number(proxyHops));
 
 app.use(helmet());
-app.use(cors({ origin: process.env.FRONTEND_URL, credentials: true }));
+// FRONTEND_URL may list several origins separated by commas (e.g. the Vercel address and your own domain)
+const allowedOrigins = process.env.FRONTEND_URL.split(',').map((o) => o.trim().replace(/\/$/, '')).filter(Boolean);
+app.use(cors({ origin: allowedOrigins, credentials: true }));
 
 // NOTE: payment webhook routes must be mounted BEFORE express.json() with
 // express.raw({ type: 'application/json' }) so the raw body is available

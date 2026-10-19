@@ -18,7 +18,12 @@ const path = require('path');
 const crypto = require('crypto');
 const multer = require('multer');
 
-const UPLOAD_DIR = path.resolve(process.env.UPLOAD_DIR || path.join(__dirname, '../../private-uploads'));
+// Where files are stored: UPLOAD_DIR if set, else a folder on the Railway Volume, else a local folder (development).
+const UPLOAD_DIR = path.resolve(
+  process.env.UPLOAD_DIR ||
+    (process.env.RAILWAY_VOLUME_MOUNT_PATH && path.join(process.env.RAILWAY_VOLUME_MOUNT_PATH, 'uploads')) ||
+    path.join(__dirname, '../../private-uploads')
+);
 fs.mkdirSync(UPLOAD_DIR, { recursive: true, mode: 0o700 });
 
 const MAX_FILE_BYTES = 5 * 1024 * 1024; // 5 MB per document

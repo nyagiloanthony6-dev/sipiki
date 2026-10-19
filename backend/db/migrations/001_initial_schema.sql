@@ -8,7 +8,7 @@
 --  - All tables have created_at / updated_at for auditing
 -- ============================================================================
 
-CREATE EXTENSION IF NOT EXISTS "pgcrypto"; -- for gen_random_uuid()
+-- Requires PostgreSQL 13 or newer: gen_random_uuid() is built in, so no extension is needed.
 
 -- ----------------------------------------------------------------------------
 -- ENUMS
