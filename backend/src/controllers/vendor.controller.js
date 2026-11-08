@@ -57,6 +57,22 @@ function handleUpload(req, res, next) {
 
 // ---- controllers -----------------------------------------------------------
 
+/** GET /api/vendors/categories — the business categories open for registration right now (public) */
+async function listCategories(_req, res) {
+  try {
+    const rows = await prisma.businessCategory.findMany({
+      where: { isActive: true },
+      orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
+      select: { name: true },
+    });
+    res.set('Cache-Control', 'no-store'); // an admin's on/off change must show up immediately
+    res.json({ data: rows.map((r) => r.name) });
+  } catch (err) {
+    console.error('listCategories error:', err);
+    res.status(500).json({ error: 'Imeshindikana kupata makundi' });
+  }
+}
+
 /**
  * POST /api/vendors/register   (multipart/form-data)
  * Public. Creates the owner's user account (role='vendor'), a vendors row with
@@ -76,6 +92,19 @@ async function registerVendor(req, res) {
       return res.status(400).json({ error: 'Taarifa si sahihi', details: parsed.error.flatten().fieldErrors });
     }
     const d = parsed.data;
+
+    // 1b. Categories must be ones the admin currently has switched on (matched ignoring case)
+    const active = await prisma.businessCategory.findMany({ where: { isActive: true }, select: { name: true } });
+    const canonical = new Map(active.map((c) => [c.name.toLowerCase(), c.name]));
+    const chosen = d.categories.map((c) => canonical.get(c.toLowerCase()));
+    if (chosen.some((c) => !c)) {
+      cleanup();
+      return res.status(400).json({
+        error: 'Kundi ulilochagua halipatikani kwa sasa',
+        details: { categories: ['Kundi hili halipokei maombi kwa sasa. Chagua kundi jingine.'] },
+      });
+    }
+    d.categories = [...new Set(chosen)];
 
     // 2. All three documents are required, and each must really be a PDF/JPEG/PNG
     const docRows = [];
@@ -173,4 +202,4 @@ async function getMyVendor(req, res) {
   }
 }
 
-module.exports = { handleUpload, registerVendor, getMyVendor };
+module.exports = { handleUpload, registerVendor, getMyVendor, listCategories };

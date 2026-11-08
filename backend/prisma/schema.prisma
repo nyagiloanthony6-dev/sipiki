@@ -147,6 +147,16 @@ model Category {
   @@map("categories")
 }
 
+model BusinessCategory {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String   @db.VarChar(80)
+  isActive  Boolean  @default(true) @map("is_active")
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@map("business_categories")
+}
+
 model Product {
   id            String    @id @default(uuid()) @db.Uuid
   vendorId      String    @map("vendor_id") @db.Uuid

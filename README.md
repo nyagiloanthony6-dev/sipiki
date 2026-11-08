@@ -76,6 +76,12 @@ Open `/admin` on your website and sign in with the admin account from step 5. Ad
 texts the vendor. The sign-in lasts 2 hours, then you are asked to sign in again. The page shows real data only;
 it needs `NEXT_PUBLIC_API_URL` to be set (see step 3).
 
+## Choosing which businesses can register
+In `/admin`, open the **Makundi** tab. Each business category has an on/off switch: the registration form shows only
+the categories that are switched on, and the server refuses applications for closed ones. You can add new categories
+there too. Closing every category closes registration completely. Vendors who registered earlier are not affected.
+(The product categories on the storefront page are separate and still sample data.)
+
 ## Not connected yet
 - Customer sign-up/checkout and mobile-money payments are not built (the payment code in `backend/src/services/stripe.service.js`
   is Stripe-based and does not cover M-Pesa / Tigo Pesa / Airtel Money).

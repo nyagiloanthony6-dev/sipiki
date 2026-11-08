@@ -8,6 +8,7 @@
 //      └──reject──▶ rejected
 // ============================================================================
 const fs = require('fs');
+const { z } = require('zod');
 const prisma = require('../config/db');
 const { reasonSchema } = require('../validators/vendor.validators');
 const { sendSms } = require('../services/sms.service');
@@ -249,7 +250,62 @@ const reactivateVendor = (req, res) =>
     fields: { suspensionReason: null },
   });
 
+// ---- business categories (what vendors can pick when registering) ------------
+
+const categoryCreateSchema = z.object({ name: z.string().trim().min(2, 'Jina ni fupi mno').max(80, 'Jina ni refu mno') });
+const categoryToggleSchema = z.object({ isActive: z.boolean() });
+
+/** GET /api/admin/categories — every category, switched on or off */
+async function listCategories(_req, res) {
+  try {
+    const rows = await prisma.businessCategory.findMany({
+      orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
+      select: { id: true, name: true, isActive: true },
+    });
+    res.json({ data: rows });
+  } catch (err) {
+    console.error('admin listCategories error:', err);
+    res.status(500).json({ error: 'Imeshindikana kupata makundi' });
+  }
+}
+
+/** POST /api/admin/categories   body: { name } — adds a new category (switched on) */
+async function createCategory(req, res) {
+  const parsed = categoryCreateSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: 'Jina la kundi si sahihi', details: parsed.error.flatten().fieldErrors });
+  try {
+    const { _max } = await prisma.businessCategory.aggregate({ _max: { sortOrder: true } });
+    const category = await prisma.businessCategory.create({
+      data: { name: parsed.data.name, sortOrder: (_max.sortOrder ?? 0) + 1 },
+      select: { id: true, name: true, isActive: true },
+    });
+    console.info(`[audit] admin ${req.user.id} added category "${category.name}"`);
+    res.status(201).json({ category });
+  } catch (err) {
+    if (err.code === 'P2002') return res.status(409).json({ error: 'Kundi hili tayari lipo' });
+    console.error('createCategory error:', err);
+    res.status(500).json({ error: 'Imeshindikana kuongeza kundi' });
+  }
+}
+
+/** PATCH /api/admin/categories/:id   body: { isActive } — opens or closes a category for registration */
+async function updateCategory(req, res) {
+  const parsed = categoryToggleSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: 'Taarifa si sahihi' });
+  try {
+    const result = await prisma.businessCategory.updateMany({ where: { id: req.params.id }, data: { isActive: parsed.data.isActive } });
+    if (result.count === 0) return res.status(404).json({ error: 'Kundi halipatikani' });
+    const category = await prisma.businessCategory.findUnique({ where: { id: req.params.id }, select: { id: true, name: true, isActive: true } });
+    console.info(`[audit] admin ${req.user.id} set category "${category.name}" active=${category.isActive}`);
+    res.json({ category });
+  } catch (err) {
+    console.error('updateCategory error:', err);
+    res.status(500).json({ error: 'Imeshindikana kubadilisha kundi' });
+  }
+}
+
 module.exports = {
   getStats, listApplications, listVendors, getVendor, downloadDocument,
   approveVendor, rejectVendor, suspendVendor, reactivateVendor,
+  listCategories, createCategory, updateCategory,
 };

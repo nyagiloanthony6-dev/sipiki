@@ -7,7 +7,6 @@ const { z } = require('zod');
 const { normalizePhone } = require('../utils/phone');
 
 const BUSINESS_TYPES = ['Mtu Binafsi', 'Kampuni (Ltd)', 'Ushirika / Kikundi'];
-const CATEGORIES = ['Mavazi', 'Simu na Vifaa', 'Viatu', 'Urembo', 'Mikoba na Vifaa'];
 const PAYOUT_PROVIDERS = ['M-Pesa', 'Tigo Pesa', 'Airtel Money', 'HaloPesa'];
 const REGIONS = [
   'Arusha', 'Dar es Salaam', 'Dodoma', 'Geita', 'Iringa', 'Kagera', 'Katavi', 'Kigoma', 'Kilimanjaro',
@@ -51,7 +50,8 @@ const vendorRegistrationSchema = z.object({
   region: z.enum(REGIONS),
   location: z.string().trim().min(3).max(200),
   // multipart sends arrays as JSON strings; the controller parses before validating
-  categories: z.array(z.enum(CATEGORIES)).min(1).max(CATEGORIES.length),
+  // which names are allowed is decided by the admin (business_categories table) — checked in the controller
+  categories: z.array(z.string().trim().min(1).max(80)).min(1).max(30),
   description: z.string().trim().max(1000).optional().default(''),
   // --- Owner
   ownerName: z

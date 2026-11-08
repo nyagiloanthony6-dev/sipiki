@@ -21,6 +21,10 @@ router.get('/vendors', admin.listVendors);
 router.get('/vendors/:id', admin.getVendor);
 router.get('/vendors/:id/documents/:docId', admin.downloadDocument);
 
+router.get('/categories', admin.listCategories);
+router.post('/categories', admin.createCategory);
+router.patch('/categories/:id', admin.updateCategory);
+
 router.post('/vendors/:id/approve', admin.approveVendor);
 router.post('/vendors/:id/reject', admin.rejectVendor);
 router.post('/vendors/:id/suspend', admin.suspendVendor);

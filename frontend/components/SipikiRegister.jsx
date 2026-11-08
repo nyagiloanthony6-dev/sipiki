@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Store, User, Wallet, FileText, Check, ChevronLeft, ChevronRight, Upload, ShieldCheck,
   TrendingUp, Truck, BadgePercent, CheckCircle2, Clock, X,
@@ -22,7 +22,8 @@ const REGIONS = [
 
 const BUSINESS_TYPES = ["Mtu Binafsi", "Kampuni (Ltd)", "Ushirika / Kikundi"];
 
-const CATEGORIES = ["Mavazi", "Simu na Vifaa", "Viatu", "Urembo", "Mikoba na Vifaa"];
+// Used only in demo mode (no backend). With a backend, the admin decides which categories are open.
+const DEMO_CATEGORIES = ["Mavazi", "Simu na Vifaa", "Viatu", "Urembo", "Mikoba na Vifaa"];
 
 const PAYOUT_PROVIDERS = ["M-Pesa", "Tigo Pesa", "Airtel Money", "HaloPesa"];
 
@@ -74,7 +75,7 @@ async function submitApplication(f) {
   // No Content-Type header: the browser adds the multipart boundary itself
   const res = await fetch(`${API_URL}/vendors/register`, { method: "POST", body });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || "Imeshindikana kutuma ombi. Jaribu tena.");
+  if (!res.ok) throw new Error(data.details?.categories?.[0] || data.error || "Imeshindikana kutuma ombi. Jaribu tena.");
   return data.applicationRef;
 }
 
@@ -204,6 +205,26 @@ export default function SipikiRegister() {
   const [submitted, setSubmitted] = useState(null); // reference number once submitted
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
+  // Categories currently open for registration (null = still loading)
+  const [categories, setCategories] = useState(API_URL ? null : DEMO_CATEGORIES);
+  const [categoriesError, setCategoriesError] = useState("");
+  const [categoriesTry, setCategoriesTry] = useState(0);
+
+  useEffect(() => {
+    if (!API_URL) return;
+    let cancelled = false;
+    setCategoriesError("");
+    fetch(`${API_URL}/vendors/categories`, { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error("bad status"))))
+      .then((d) => {
+        if (cancelled) return;
+        setCategories(d.data);
+        // drop any earlier pick that the admin has since closed
+        setForm((f) => ({ ...f, categories: f.categories.filter((c) => d.data.includes(c)) }));
+      })
+      .catch(() => { if (!cancelled) setCategoriesError("Imeshindikana kupakia makundi ya bidhaa."); });
+    return () => { cancelled = true; };
+  }, [categoriesTry]);
 
   const set = (key, value) => {
     setForm((f) => ({ ...f, [key]: value }));
@@ -364,24 +385,36 @@ export default function SipikiRegister() {
 
               <div>
                 <p className="mb-2 text-sm font-semibold text-slate-800">Unauza Bidhaa Gani?</p>
-                <div className="flex flex-wrap gap-2">
-                  {CATEGORIES.map((cat) => {
-                    const on = form.categories.includes(cat);
-                    return (
-                      <button
-                        type="button"
-                        key={cat}
-                        onClick={() => toggleCategory(cat)}
-                        className={`rounded-full border px-4 py-2 text-sm font-semibold transition ${
-                          on ? "border-orange-500 bg-orange-500 text-white" : "border-stone-300 bg-white text-slate-600 hover:border-orange-400"
-                        }`}
-                      >
-                        {on && <Check size={13} className="mr-1 inline" />}
-                        {cat}
-                      </button>
-                    );
-                  })}
-                </div>
+                {categoriesError ? (
+                  <p className="text-sm text-red-600">
+                    {categoriesError} <button type="button" onClick={() => setCategoriesTry((n) => n + 1)} className="font-bold underline">Jaribu tena</button>
+                  </p>
+                ) : categories === null ? (
+                  <p className="text-sm text-slate-400">Inapakia makundi...</p>
+                ) : categories.length === 0 ? (
+                  <p className="rounded-xl bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800">
+                    Usajili wa wauzaji umefungwa kwa sasa. Tafadhali rudi baadaye.
+                  </p>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {categories.map((cat) => {
+                      const on = form.categories.includes(cat);
+                      return (
+                        <button
+                          type="button"
+                          key={cat}
+                          onClick={() => toggleCategory(cat)}
+                          className={`rounded-full border px-4 py-2 text-sm font-semibold transition ${
+                            on ? "border-orange-500 bg-orange-500 text-white" : "border-stone-300 bg-white text-slate-600 hover:border-orange-400"
+                          }`}
+                        >
+                          {on && <Check size={13} className="mr-1 inline" />}
+                          {cat}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
                 {errors.categories && <p className="mt-1 text-xs font-medium text-red-600">{errors.categories}</p>}
               </div>
 

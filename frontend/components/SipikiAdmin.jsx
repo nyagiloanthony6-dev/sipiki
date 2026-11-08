@@ -3,7 +3,7 @@ import Link from "next/link";
 import { useState, useMemo, useEffect, useCallback } from "react";
 import {
   LayoutDashboard, ClipboardCheck, Store, Search, X, Check, FileText, Phone, Mail, MapPin,
-  Wallet, Eye, TrendingUp, Clock, Ban, RotateCcw, Banknote, Users, LogOut, Lock, Loader2,
+  Wallet, Eye, TrendingUp, Clock, Ban, RotateCcw, Banknote, Users, LogOut, Lock, Loader2, Tags, Plus,
 } from "lucide-react";
 import { apiConfigured, request, fetchDocumentBlob, getToken, setToken } from "../lib/adminApi";
 
@@ -245,6 +245,8 @@ export default function SipikiAdmin() {
 function Dashboard({ admin, onSignOut }) {
   const [vendors, setVendors] = useState([]); // every vendor, pending included
   const [serverStats, setServerStats] = useState(null);
+  const [categories, setCategories] = useState([]);
+  const [newCategory, setNewCategory] = useState("");
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -266,12 +268,14 @@ function Dashboard({ admin, onSignOut }) {
 
   const load = useCallback(async () => {
     try {
-      const [stats, apps, rest] = await Promise.all([
+      const [stats, apps, rest, cats] = await Promise.all([
         request("/admin/stats"),
         request("/admin/applications"),
         request("/admin/vendors?limit=100"),
+        request("/admin/categories"),
       ]);
       setServerStats(stats);
+      setCategories(cats.data);
       setVendors([...apps.data.map(toVendor), ...rest.data.map(toVendor)]);
       setLoadError("");
     } catch (err) {
@@ -357,6 +361,38 @@ function Dashboard({ admin, onSignOut }) {
     if (ok) setModal(null);
   }
 
+  // Opens or closes a category for new registrations
+  async function toggleCategory(c) {
+    if (busy) return;
+    setBusy(true);
+    try {
+      const { category } = await request(`/admin/categories/${c.id}`, { method: "PATCH", body: { isActive: !c.isActive } });
+      setCategories((prev) => prev.map((x) => (x.id === category.id ? category : x)));
+      notify(category.isActive ? `"${category.name}" sasa iko wazi kwa usajili` : `"${category.name}" imefungwa kwa usajili`);
+    } catch (err) {
+      if (!handleAuthError(err)) notify(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function addCategory(e) {
+    e.preventDefault();
+    const name = newCategory.trim();
+    if (!name || busy) return;
+    setBusy(true);
+    try {
+      const { category } = await request("/admin/categories", { method: "POST", body: { name } });
+      setCategories((prev) => [...prev, category]);
+      setNewCategory("");
+      notify(`"${category.name}" imeongezwa`);
+    } catch (err) {
+      if (!handleAuthError(err)) notify(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   // Documents need the token, so fetch as a file and open it from a temporary local address.
   // The tab is opened first (inside the click) so the browser doesn't block it as a pop-up.
   async function openDoc(vendorId, doc) {
@@ -376,6 +412,7 @@ function Dashboard({ admin, onSignOut }) {
     { key: "overview", label: "Muhtasari", icon: LayoutDashboard },
     { key: "applications", label: "Maombi", icon: ClipboardCheck, count: pending.length },
     { key: "vendors", label: "Wauzaji", icon: Store },
+    { key: "categories", label: "Makundi", icon: Tags },
   ];
 
   const modalVendor = modal ? vendors.find((v) => v.id === modal.id) : null;
@@ -657,6 +694,54 @@ function Dashboard({ admin, onSignOut }) {
                 </tbody>
               </table>
             </div>
+          </div>
+        )}
+        {/* ================= Categories ================= */}
+        {!loading && tab === "categories" && (
+          <div className="max-w-2xl">
+            <h1 className="text-2xl font-extrabold text-slate-900">Makundi ya Biashara</h1>
+            <p className="mb-5 text-sm text-slate-500">
+              Chagua makundi yanayoonekana kwenye fomu ya usajili. Kundi lililofungwa halipokei maombi mapya; wauzaji waliokwisha sajiliwa hawaathiriwi.
+              Ukifunga yote, usajili wote umefungwa.
+            </p>
+
+            <form onSubmit={addCategory} className="mb-4 flex gap-2">
+              <input
+                value={newCategory}
+                onChange={(e) => setNewCategory(e.target.value)}
+                maxLength={80}
+                placeholder="Ongeza kundi jipya, mf. Vyakula"
+                className="flex-1 rounded-xl border border-stone-300 bg-white px-4 py-2.5 text-sm outline-none focus:border-orange-500"
+              />
+              <button type="submit" disabled={busy || newCategory.trim().length < 2} className="flex items-center gap-1.5 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-bold text-white hover:bg-slate-700 disabled:opacity-50">
+                <Plus size={16} /> Ongeza
+              </button>
+            </form>
+
+            <ul className="divide-y divide-stone-100 overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-sm">
+              {categories.map((c) => (
+                <li key={c.id} className="flex items-center justify-between px-4 py-3">
+                  <div>
+                    <p className={`text-sm font-bold ${c.isActive ? "text-slate-900" : "text-slate-400"}`}>{c.name}</p>
+                    <p className={`text-xs ${c.isActive ? "text-emerald-600" : "text-slate-400"}`}>{c.isActive ? "Wazi kwa usajili" : "Imefungwa"}</p>
+                  </div>
+                  <button
+                    role="switch"
+                    aria-checked={c.isActive}
+                    aria-label={`${c.name}: ${c.isActive ? "funga" : "fungua"}`}
+                    onClick={() => toggleCategory(c)}
+                    disabled={busy}
+                    className={`relative h-6 w-11 rounded-full transition ${c.isActive ? "bg-emerald-500" : "bg-stone-300"} disabled:opacity-60`}
+                  >
+                    <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${c.isActive ? "left-[22px]" : "left-0.5"}`} />
+                  </button>
+                </li>
+              ))}
+              {categories.length === 0 && <li className="px-4 py-8 text-center text-sm text-slate-400">Hakuna makundi bado.</li>}
+            </ul>
+            {categories.length > 0 && categories.every((c) => !c.isActive) && (
+              <p className="mt-3 rounded-xl bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800">Makundi yote yamefungwa — usajili wa wauzaji umefungwa kwa sasa.</p>
+            )}
           </div>
         )}
       </main>
