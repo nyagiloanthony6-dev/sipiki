@@ -7,3 +7,4 @@ private-uploads/
 *.log
 .DS_Store
 .vercel
+product-images/

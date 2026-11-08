@@ -21,8 +21,8 @@ async function listProducts(req, res) {
       maxPrice,
     } = req.query;
 
-    const take = Math.min(Number(limit), 100); // hard cap to prevent abuse
-    const skip = (Number(page) - 1) * take;
+    const take = Math.min(Math.max(Number(limit) || 20, 1), 100); // hard cap to prevent abuse
+    const skip = (Math.max(Number(page) || 1, 1) - 1) * take;
 
     // Build the WHERE clause dynamically based on which filters were supplied
     const where = {
@@ -76,6 +76,7 @@ async function listProducts(req, res) {
       vendor: p.vendor,
       tags: p.tags.map((t) => t.tag.name),
       reviewCount: p._count.reviews,
+      description: p.description,
       inStock: p.stockQuantity > 0,
     }));
 
@@ -133,48 +134,22 @@ async function getProductBySlug(req, res) {
 }
 
 /**
- * POST /api/vendor/products
- * Vendor creates a new product listing. Requires role='vendor'.
+ * GET /api/products/categories
+ * Categories that currently have at least one product on sale (what the storefront's category tiles show).
  */
-async function createProduct(req, res) {
+async function listProductCategories(_req, res) {
   try {
-    const { title, slug, description, priceCents, currency, stockQuantity, categoryId, tags = [] } = req.body;
-
-    // req.user.id is the authenticated user; resolve their vendor record
-    const vendor = await prisma.vendor.findUnique({ where: { userId: req.user.id } });
-    if (!vendor) return res.status(403).json({ error: 'No vendor profile found for this account' });
-
-    // Only approved vendors may list products (pending applicants, rejected and suspended vendors cannot)
-    if (vendor.status !== 'active') {
-      return res.status(403).json({ error: 'Akaunti yako haijaidhinishwa bado', status: vendor.status });
-    }
-
-    const product = await prisma.product.create({
-      data: {
-        vendorId: vendor.id,
-        title,
-        slug,
-        description,
-        priceCents,
-        currency: currency || 'USD',
-        stockQuantity: stockQuantity ?? 0,
-        categoryId,
-        tags: {
-          create: tags.map((tagName) => ({
-            tag: {
-              connectOrCreate: { where: { name: tagName }, create: { name: tagName } },
-            },
-          })),
-        },
-      },
-      include: { tags: { include: { tag: true } } },
+    const rows = await prisma.category.findMany({
+      where: { products: { some: { isActive: true, deletedAt: null, vendor: { status: 'active' } } } },
+      orderBy: { name: 'asc' },
+      select: { name: true, slug: true },
     });
-
-    res.status(201).json(product);
+    res.set('Cache-Control', 'no-store');
+    res.json({ data: rows });
   } catch (err) {
-    console.error('createProduct error:', err);
-    res.status(500).json({ error: 'Failed to create product' });
+    console.error('listProductCategories error:', err);
+    res.status(500).json({ error: 'Imeshindikana kupata makundi' });
   }
 }
 
-module.exports = { listProducts, getProductBySlug, createProduct };
+module.exports = { listProducts, getProductBySlug, listProductCategories };

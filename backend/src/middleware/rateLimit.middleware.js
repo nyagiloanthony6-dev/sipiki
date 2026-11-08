@@ -18,5 +18,7 @@ module.exports = {
   // 10 login attempts per 15 minutes per IP
   loginLimiter: make(15, 10, 'Majaribio mengi sana. Jaribu tena baada ya dakika 15.'),
   // 5 registrations per hour per IP (vendor applications upload files, so they're heavier)
+  // Product/photo changes from the vendor portal: generous for real use, still caps scripted abuse
+  portalWriteLimiter: make(60, 300, 'Maombi mengi sana. Subiri kidogo kisha jaribu tena.'),
   registerLimiter: make(60, 5, 'Maombi mengi sana kutoka kwenye mtandao huu. Jaribu tena baadaye.'),
 };

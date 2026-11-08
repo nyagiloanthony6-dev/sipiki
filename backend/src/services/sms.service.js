@@ -20,7 +20,7 @@ const TEMPLATES = {
   application_received: ({ name, ref }) =>
     `Sipiki: Habari ${name}, tumepokea ombi lako la biashara (${ref}). Tutakujulisha baada ya ukaguzi.`,
   approved: ({ name, appUrl }) =>
-    `Sipiki: Hongera ${name}! Biashara yako imeidhinishwa. Ingia sasa uanze kuuza: ${appUrl}`,
+    `Sipiki: Hongera ${name}! Biashara yako imeidhinishwa. Ingia sasa uanze kuuza: ${appUrl}/vendor`,
   rejected: ({ name, reason }) =>
     `Sipiki: Samahani ${name}, ombi lako halijakubaliwa. Sababu: ${reason}. Wasiliana nasi kwa msaada.`,
   suspended: ({ name, reason }) =>

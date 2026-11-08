@@ -183,23 +183,4 @@ async function registerVendor(req, res) {
   }
 }
 
-/** GET /api/vendors/me — the logged-in vendor's own application/account status */
-async function getMyVendor(req, res) {
-  try {
-    const vendor = await prisma.vendor.findUnique({
-      where: { userId: req.user.id },
-      select: {
-        id: true, storeName: true, storeSlug: true, status: true, applicationRef: true,
-        rejectionReason: true, suspensionReason: true, createdAt: true, reviewedAt: true,
-        documents: { select: { type: true, originalName: true } },
-      },
-    });
-    if (!vendor) return res.status(404).json({ error: 'Hakuna wasifu wa muuzaji kwa akaunti hii' });
-    res.json(vendor);
-  } catch (err) {
-    console.error('getMyVendor error:', err);
-    res.status(500).json({ error: 'Imeshindikana kupata taarifa' });
-  }
-}
-
-module.exports = { handleUpload, registerVendor, getMyVendor, listCategories };
+module.exports = { handleUpload, registerVendor, listCategories };

@@ -76,14 +76,22 @@ Open `/admin` on your website and sign in with the admin account from step 5. Ad
 texts the vendor. The sign-in lasts 2 hours, then you are asked to sign in again. The page shows real data only;
 it needs `NEXT_PUBLIC_API_URL` to be set (see step 3).
 
+## The vendor portal
+Approved businesses sign in at `/vendor` with the email and password they registered with. What they see depends on their status:
+waiting for review, rejected (with the reason), suspended (with the reason), or — once approved — a dashboard where they can
+add, edit, hide and delete products with up to 4 photos each. Products appear on the storefront right away. A vendor can only
+list products in the categories they registered under. Photos are stored on the same Railway Volume as the documents
+(`/data/product-images`, public) so nothing extra needs setting up. The approval SMS links to `/vendor` using `APP_URL` —
+set `APP_URL` to your real website address (the Vercel address until `sipiki.co.tz` is connected).
+
 ## Choosing which businesses can register
 In `/admin`, open the **Makundi** tab. Each business category has an on/off switch: the registration form shows only
 the categories that are switched on, and the server refuses applications for closed ones. You can add new categories
 there too. Closing every category closes registration completely. Vendors who registered earlier are not affected.
-(The product categories on the storefront page are separate and still sample data.)
+(Each business category also gets a matching product category, so vendors can list products in it.)
 
 ## Not connected yet
-- Customer sign-up/checkout and mobile-money payments are not built (the payment code in `backend/src/services/stripe.service.js`
+- Orders: vendors see an empty Maagizo tab until customers can buy. Customer sign-up/checkout and mobile-money payments are not built (the payment code in `backend/src/services/stripe.service.js`
   is Stripe-based and does not cover M-Pesa / Tigo Pesa / Airtel Money).
 - The admin vendor list loads the 100 most recent reviewed vendors; paging comes later.
 

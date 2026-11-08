@@ -252,6 +252,10 @@ const reactivateVendor = (req, res) =>
 
 // ---- business categories (what vendors can pick when registering) ------------
 
+function slugify(text) {
+  return String(text).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 100);
+}
+
 const categoryCreateSchema = z.object({ name: z.string().trim().min(2, 'Jina ni fupi mno').max(80, 'Jina ni refu mno') });
 const categoryToggleSchema = z.object({ isActive: z.boolean() });
 
@@ -279,6 +283,9 @@ async function createCategory(req, res) {
       data: { name: parsed.data.name, sortOrder: (_max.sortOrder ?? 0) + 1 },
       select: { id: true, name: true, isActive: true },
     });
+    // Vendors list products under a product category with the same name, so make sure one exists
+    const slug = slugify(category.name) || `kundi-${category.id.slice(0, 8)}`;
+    await prisma.category.upsert({ where: { slug }, update: {}, create: { name: category.name, slug } });
     console.info(`[audit] admin ${req.user.id} added category "${category.name}"`);
     res.status(201).json({ category });
   } catch (err) {

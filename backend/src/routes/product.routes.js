@@ -1,14 +1,10 @@
 const express = require('express');
 const router = express.Router();
-const { listProducts, getProductBySlug, createProduct } = require('../controllers/product.controller');
-const { authenticate } = require('../middleware/auth.middleware');
-const { requireRole } = require('../middleware/role.middleware');
+const { listProducts, getProductBySlug, listProductCategories } = require('../controllers/product.controller');
 
-// Public catalog
+// Public catalog (read-only). Vendors add and edit products through /api/vendors/me/products.
 router.get('/', listProducts);
+router.get('/categories', listProductCategories); // must stay above '/:slug'
 router.get('/:slug', getProductBySlug);
-
-// Vendor-only: create a product
-router.post('/', authenticate, requireRole('vendor', 'admin'), createProduct);
 
 module.exports = router;

@@ -83,4 +83,53 @@ function storedFilePath(storageKey) {
   return path.join(UPLOAD_DIR, storageKey);
 }
 
-module.exports = { upload, FIELD_TO_DOC_TYPE, detectMime, deleteStoredFile, storedFilePath };
+// ---------------------------------------------------------------------------
+// Product photos — PUBLIC (shown on the storefront), so they live in a separate
+// folder from the private verification documents above. Same safety rules:
+// random server-made names, size limit, real type checked from the file's bytes.
+// ---------------------------------------------------------------------------
+const IMAGES_DIR = path.resolve(process.env.PRODUCT_IMAGE_DIR || path.join(path.dirname(UPLOAD_DIR), 'product-images'));
+fs.mkdirSync(IMAGES_DIR, { recursive: true });
+
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+const ALLOWED_IMAGE_MIME = ['image/jpeg', 'image/png', 'image/webp'];
+
+const uploadProductImage = multer({
+  storage: multer.diskStorage({
+    destination: (_req, _file, cb) => cb(null, IMAGES_DIR),
+    filename: (_req, _file, cb) => cb(null, crypto.randomBytes(24).toString('hex')),
+  }),
+  limits: { fileSize: MAX_IMAGE_BYTES, files: 1, fields: 5 },
+  fileFilter: (_req, file, cb) =>
+    ALLOWED_IMAGE_MIME.includes(file.mimetype) ? cb(null, true) : cb(new Error('Tumia picha ya JPG, PNG au WebP.')),
+}).single('image');
+
+/** Real image type from the first bytes (JPEG, PNG or WebP), or null. */
+function detectImageMime(filePath) {
+  const fd = fs.openSync(filePath, 'r');
+  try {
+    const h = Buffer.alloc(12);
+    fs.readSync(fd, h, 0, 12, 0);
+    if (h[0] === 0xff && h[1] === 0xd8 && h[2] === 0xff) return 'image/jpeg';
+    if (h[0] === 0x89 && h[1] === 0x50 && h[2] === 0x4e && h[3] === 0x47) return 'image/png';
+    if (h.toString('latin1', 0, 4) === 'RIFF' && h.toString('latin1', 8, 12) === 'WEBP') return 'image/webp';
+    return null;
+  } finally {
+    fs.closeSync(fd);
+  }
+}
+
+function imageFilePath(storageKey) {
+  if (!/^[a-f0-9]{48}$/.test(storageKey)) throw new Error('Invalid image key');
+  return path.join(IMAGES_DIR, storageKey);
+}
+
+function deleteImageFile(storageKey) {
+  if (!/^[a-f0-9]{48}$/.test(storageKey)) return;
+  fs.promises.unlink(path.join(IMAGES_DIR, storageKey)).catch(() => {});
+}
+
+module.exports = {
+  upload, FIELD_TO_DOC_TYPE, detectMime, deleteStoredFile, storedFilePath,
+  uploadProductImage, detectImageMime, imageFilePath, deleteImageFile,
+};

@@ -1,15 +1,19 @@
 "use client";
 import Link from "next/link";
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { Search, ChevronDown, Heart, Plus, Minus, X, ShoppingCart, Home, Package, LayoutDashboard, ShieldCheck, Star, ChevronLeft, ChevronRight, ArrowRight, MapPin, Phone, Mail, Truck, ShieldCheck as Shield, Headphones, RotateCcw } from "lucide-react";
+import { API_URL, request } from "../lib/adminApi";
+import { imageSrc } from "../lib/vendorApi";
 
 // ============================================================================
-// MOCK CATALOG — general Tanzanian marketplace listing (Jumia/Kilimall-style)
-// Mirrors the GET /api/products response shape from the backend scaffold
+// SAMPLE CATALOG (demo mode only) — general Tanzanian marketplace listing (Jumia/Kilimall-style)
+// With NEXT_PUBLIC_API_URL set, products and categories come from GET /api/products instead.
 // ============================================================================
-const CATEGORIES = ["Makundi Yote", "Mavazi", "Simu na Vifaa", "Viatu", "Urembo", "Mikoba na Vifaa"];
 
-const PRODUCTS = [
+// Sample data — shown only in demo mode (no NEXT_PUBLIC_API_URL). With a backend, the shop shows real products.
+const SAMPLE_CATEGORIES = ["Makundi Yote", "Mavazi", "Simu na Vifaa", "Viatu", "Urembo", "Mikoba na Vifaa"];
+
+const SAMPLE_PRODUCTS = [
   { id: "p1", title: "Dress ya Kitenge Ankara", vendor: "Amina Fashion", category: "Mavazi", emoji: "👗", tile: "bg-sky-100", rating: 4.9, reviews: 128, oldPrice: 50000, price: 35000, badge: null },
   { id: "p2", title: "Samsung Galaxy A15 128GB", vendor: "Tech Hub Kariakoo", category: "Simu na Vifaa", emoji: "📱", tile: "bg-amber-100", rating: 4.8, reviews: 86, oldPrice: null, price: 450000, badge: null },
   { id: "p3", title: "Nike Air Force Replica", vendor: "Juma Shoes", category: "Viatu", emoji: "👟", tile: "bg-rose-100", rating: 4.7, reviews: 64, oldPrice: 70000, price: 55000, badge: null },
@@ -167,10 +171,12 @@ const CATEGORY_META = {
   "Mikoba na Vifaa": { emoji: "👜", tile: "bg-yellow-100", ring: "ring-yellow-500" },
 };
 
-function CategorySection({ active, onSelect }) {
+const DEFAULT_META = { emoji: "🛍️", tile: "bg-stone-100", ring: "ring-stone-400" };
+
+function CategorySection({ active, onSelect, categories, products }) {
   // Product count per category, derived from the catalog
   const countFor = (cat) =>
-    cat === "Makundi Yote" ? PRODUCTS.length : PRODUCTS.filter((p) => p.category === cat).length;
+    cat === "Makundi Yote" ? products.length : products.filter((p) => p.category === cat).length;
 
   return (
     <section className="mx-auto max-w-7xl px-6 pt-8">
@@ -187,8 +193,8 @@ function CategorySection({ active, onSelect }) {
       </div>
 
       <div className="flex gap-3 overflow-x-auto pb-2 sm:grid sm:grid-cols-6 sm:overflow-visible">
-        {CATEGORIES.map((cat) => {
-          const meta = CATEGORY_META[cat];
+        {categories.map((cat) => {
+          const meta = CATEGORY_META[cat] || DEFAULT_META;
           const isActive = active === cat;
           return (
             <button
@@ -216,7 +222,7 @@ function CategorySection({ active, onSelect }) {
 // ============================================================================
 const PAYMENT_METHODS = ["M-Pesa", "Tigo Pesa", "Airtel Money", "HaloPesa", "Visa", "Mastercard"];
 
-function Footer({ onSelectCategory }) {
+function Footer({ onSelectCategory, categories }) {
   const pickCategory = (cat) => {
     onSelectCategory(cat);
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -280,7 +286,7 @@ function Footer({ onSelectCategory }) {
         <div>
           <h4 className="mb-3 text-sm font-bold uppercase tracking-wider text-white">Makundi</h4>
           <ul className="space-y-2">
-            {CATEGORIES.filter((c) => c !== "Makundi Yote").map((cat) => (
+            {categories.filter((c) => c !== "Makundi Yote").map((cat) => (
               <li key={cat}>
                 <button onClick={() => pickCategory(cat)} className={linkCls}>
                   {cat}
@@ -413,6 +419,37 @@ export default function SipikiListing() {
   const [cart, setCart] = useState([]); // { productId, quantity }
   const [wishlist, setWishlist] = useState([]);
   const [cartOpen, setCartOpen] = useState(false);
+
+  // Real products from the API (or the sample ones in demo mode)
+  const [products, setProducts] = useState(API_URL ? [] : SAMPLE_PRODUCTS);
+  const [categoryNames, setCategoryNames] = useState(API_URL ? [] : SAMPLE_CATEGORIES.slice(1));
+  const [catalog, setCatalog] = useState(API_URL ? "loading" : "ready"); // loading | ready | error
+  const [catalogTry, setCatalogTry] = useState(0);
+  const categories = useMemo(() => ["Makundi Yote", ...categoryNames], [categoryNames]);
+
+  useEffect(() => {
+    if (!API_URL) return undefined;
+    let cancelled = false;
+    setCatalog("loading");
+    Promise.all([request("/products?limit=100", { token: null }), request("/products/categories", { token: null })])
+      .then(([p, c]) => {
+        if (cancelled) return;
+        setProducts(p.data.map((x) => {
+          const cat = x.category?.name || "";
+          return {
+            id: x.id, title: x.title, vendor: x.vendor?.storeName || "", category: cat,
+            emoji: (CATEGORY_META[cat] || DEFAULT_META).emoji, tile: "bg-stone-100",
+            image: imageSrc(x.thumbnail), rating: null, reviews: x.reviewCount, oldPrice: null, badge: null,
+            price: Math.round(x.priceCents / 100), inStock: x.inStock,
+          };
+        }));
+        setCategoryNames(c.data.map((x) => x.name));
+        setCatalog("ready");
+      })
+      .catch(() => { if (!cancelled) setCatalog("error"); });
+    return () => { cancelled = true; };
+  }, [catalogTry]);
+
   // Header buttons whose pages are not built yet say so, instead of silently doing nothing
   const [notice, setNotice] = useState(null);
   function comingSoon(text, sellerLink = false) {
@@ -421,7 +458,7 @@ export default function SipikiListing() {
   }
 
   const filtered = useMemo(() => {
-    return PRODUCTS.filter((p) => {
+    return products.filter((p) => {
       const matchesCategory = category === "Makundi Yote" || p.category === category;
       const matchesSearch =
         !search ||
@@ -429,7 +466,7 @@ export default function SipikiListing() {
         p.vendor.toLowerCase().includes(search.toLowerCase());
       return matchesCategory && matchesSearch;
     });
-  }, [category, search]);
+  }, [category, search, products]);
 
   // ---- Cart logic — mirrors backend cart.controller.js: addItem increments
   // an existing line, updateItemQuantity <=0 removes it ------------------
@@ -456,7 +493,7 @@ export default function SipikiListing() {
   }
 
   const cartLines = cart
-    .map((line) => ({ ...line, product: PRODUCTS.find((p) => p.id === line.productId) }))
+    .map((line) => ({ ...line, product: products.find((p) => p.id === line.productId) }))
     .filter((line) => line.product);
   const itemCount = cartLines.reduce((s, l) => s + l.quantity, 0);
   const subtotal = cartLines.reduce((s, l) => s + l.product.price * l.quantity, 0);
@@ -476,7 +513,7 @@ export default function SipikiListing() {
           <div className="flex flex-wrap items-center gap-2">
             <NavPill href="/" emoji="🏠" label="Nyumbani" className="bg-orange-600 text-white hover:bg-orange-500" />
             <NavPill onClick={() => comingSoon("Maagizo yatapatikana punde — akaunti za wateja bado hazijafunguliwa.")} emoji="📦" label="Maagizo" className="bg-purple-600 text-white hover:bg-purple-500" />
-            <NavPill onClick={() => comingSoon("Dashboard ya wauzaji inakuja hivi karibuni.")} icon={LayoutDashboard} label="Dashboard" className="border border-slate-600 text-slate-200 hover:border-slate-400" />
+            <NavPill href="/vendor" icon={LayoutDashboard} label="Dashboard" className="border border-slate-600 text-slate-200 hover:border-slate-400" />
             <NavPill href="/admin" icon={ShieldCheck} label="Admin" className="bg-sky-700 text-white hover:bg-sky-600" />
             <button
               onClick={() => setCartOpen(true)}
@@ -495,7 +532,11 @@ export default function SipikiListing() {
         <div role="status" className="fixed left-1/2 top-20 z-50 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 rounded-xl bg-slate-900 px-4 py-3 text-sm text-white shadow-xl">
           <p>{notice.text}</p>
           {notice.sellerLink && (
-            <p className="mt-1">Unataka kuuza? <Link href="/register" className="font-bold text-amber-300 underline">Fungua Duka Lako</Link></p>
+            <p className="mt-1">
+              Muuzaji? <Link href="/vendor" className="font-bold text-amber-300 underline">Ingia kwenye Portal</Link>
+              {" · "}
+              <Link href="/register" className="font-bold text-amber-300 underline">Fungua Duka Lako</Link>
+            </p>
           )}
         </div>
       )}
@@ -519,7 +560,7 @@ export default function SipikiListing() {
               onChange={(e) => setCategory(e.target.value)}
               className="h-full w-full appearance-none rounded-xl border border-stone-300 bg-white py-2.5 pl-4 pr-9 text-sm font-medium text-slate-700 sm:w-48"
             >
-              {CATEGORIES.map((c) => (
+              {categories.map((c) => (
                 <option key={c} value={c}>
                   {c}
                 </option>
@@ -541,7 +582,7 @@ export default function SipikiListing() {
       <Ticker />
 
       {/* ---------------- Product categories ---------------- */}
-      <CategorySection active={category} onSelect={setCategory} />
+      <CategorySection active={category} onSelect={setCategory} categories={categories} products={products} />
 
       {/* ---------------- Product grid ---------------- */}
       <main className="mx-auto max-w-7xl px-6 py-8">
@@ -571,7 +612,15 @@ export default function SipikiListing() {
                   >
                     <Heart size={14} className={isWished ? "fill-red-500 text-red-500" : "text-slate-400"} />
                   </button>
-                  <span className="text-6xl">{product.emoji}</span>
+                  {product.image ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={product.image} alt={product.title} loading="lazy" className="h-full w-full object-cover" />
+                  ) : (
+                    <span className="text-6xl">{product.emoji}</span>
+                  )}
+                  {product.inStock === false && (
+                    <span className="absolute bottom-2 left-2 rounded bg-slate-900/80 px-2 py-0.5 text-[10px] font-bold uppercase text-white">Imeisha</span>
+                  )}
                 </div>
 
                 <div className="flex flex-1 flex-col p-3">
@@ -580,7 +629,7 @@ export default function SipikiListing() {
                     {product.vendor}
                   </p>
                   <h3 className="mt-1 text-sm font-bold leading-snug text-slate-900">{product.title}</h3>
-                  <StarRating rating={product.rating} reviews={product.reviews} />
+                  {product.rating != null && <StarRating rating={product.rating} reviews={product.reviews} />}
 
                   <div className="mt-2 flex flex-1 items-end justify-between">
                     <div>
@@ -595,7 +644,8 @@ export default function SipikiListing() {
 
                     <button
                       onClick={() => addToCart(product)}
-                      className="flex h-9 w-9 items-center justify-center rounded-lg bg-orange-600 text-white transition hover:bg-orange-700"
+                      disabled={product.inStock === false}
+                      className="flex h-9 w-9 items-center justify-center rounded-lg bg-orange-600 text-white transition hover:bg-orange-700 disabled:cursor-not-allowed disabled:opacity-40"
                       aria-label="Ongeza kwenye kikapu"
                     >
                       <Plus size={18} />
@@ -613,13 +663,22 @@ export default function SipikiListing() {
           })}
         </div>
 
-        {filtered.length === 0 && (
-          <p className="mt-12 text-center text-sm text-slate-400">Hakuna bidhaa zilizopatikana.</p>
+        {catalog === "loading" && <p className="mt-12 text-center text-sm text-slate-400">Inapakia bidhaa...</p>}
+        {catalog === "error" && (
+          <p className="mt-12 text-center text-sm text-red-600">
+            Imeshindikana kupakia bidhaa.{" "}
+            <button onClick={() => setCatalogTry((n) => n + 1)} className="font-bold underline">Jaribu tena</button>
+          </p>
+        )}
+        {catalog === "ready" && filtered.length === 0 && (
+          <p className="mt-12 text-center text-sm text-slate-400">
+            {products.length === 0 ? "Bado hakuna bidhaa dukani. Wauzaji wanaongeza bidhaa hivi karibuni." : "Hakuna bidhaa zilizopatikana."}
+          </p>
         )}
       </main>
 
       {/* ---------------- Footer ---------------- */}
-      <Footer onSelectCategory={setCategory} />
+      <Footer onSelectCategory={setCategory} categories={categories} />
 
       {/* ---------------- Cart drawer ---------------- */}
       {cartOpen && (
