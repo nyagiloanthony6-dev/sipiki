@@ -25,6 +25,8 @@ router.get('/categories', admin.listCategories);
 router.post('/categories', admin.createCategory);
 router.patch('/categories/:id', admin.updateCategory);
 
+router.patch('/vendors/:id/categories', admin.updateVendorCategories);
+
 router.post('/vendors/:id/approve', admin.approveVendor);
 router.post('/vendors/:id/reject', admin.rejectVendor);
 router.post('/vendors/:id/suspend', admin.suspendVendor);

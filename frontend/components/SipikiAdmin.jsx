@@ -107,6 +107,65 @@ function ReasonModal({ title, reasons, confirmLabel, confirmCls, onConfirm, onCa
   );
 }
 
+// Lets the admin correct the categories a business registered under
+function CategoryModal({ vendor, options, onSave, onCancel, busy }) {
+  const [chosen, setChosen] = useState(() => new Set(vendor.categories.map((c) => c.toLowerCase())));
+  const [error, setError] = useState("");
+
+  // Show every known category, plus any old name the vendor has that is no longer in the list
+  const known = options.map((o) => o.name);
+  const extras = vendor.categories.filter((c) => !known.some((k) => k.toLowerCase() === c.toLowerCase()));
+  const all = [...options.map((o) => ({ name: o.name, closed: !o.isActive })), ...extras.map((name) => ({ name, closed: true, unknown: true }))];
+
+  function toggle(name) {
+    setError("");
+    setChosen((prev) => {
+      const next = new Set(prev);
+      const key = name.toLowerCase();
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  }
+
+  function submit() {
+    const names = all.filter((c) => chosen.has(c.name.toLowerCase()) && !c.unknown).map((c) => c.name);
+    if (names.length === 0) { setError("Chagua angalau kundi moja"); return; }
+    onSave(names);
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-slate-900/50" onClick={onCancel} />
+      <div className="relative max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl">
+        <div className="flex items-start justify-between">
+          <h3 className="text-lg font-extrabold text-slate-900">Badilisha makundi — {vendor.name}</h3>
+          <button onClick={onCancel} className="text-slate-400 hover:text-slate-700"><X size={20} /></button>
+        </div>
+        <p className="mt-1 text-sm text-slate-500">
+          Tumia hii kurekebisha kundi lililochaguliwa kimakosa. Bidhaa zilizokwisha wekwa zinabaki; muuzaji ataweza kuongeza bidhaa mpya kwenye makundi haya tu.
+        </p>
+        <ul className="mt-4 space-y-2">
+          {all.map((c) => (
+            <li key={c.name}>
+              <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-stone-200 px-3 py-2.5 text-sm hover:border-orange-300">
+                <input type="checkbox" checked={chosen.has(c.name.toLowerCase())} onChange={() => toggle(c.name)} disabled={c.unknown && !chosen.has(c.name.toLowerCase())} className="h-4 w-4 accent-orange-600" />
+                <span className="flex-1 font-semibold text-slate-800">{c.name}</span>
+                {c.unknown && <span className="text-[11px] font-semibold text-red-500">halipo kwenye orodha</span>}
+                {!c.unknown && c.closed && <span className="text-[11px] font-semibold text-slate-400">limefungwa kwa usajili</span>}
+              </label>
+            </li>
+          ))}
+        </ul>
+        {error && <p className="mt-2 text-xs font-medium text-red-600">{error}</p>}
+        <div className="mt-5 flex justify-end gap-2">
+          <button onClick={onCancel} className="rounded-xl px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-stone-100">Ghairi</button>
+          <button onClick={submit} disabled={busy} className="rounded-xl bg-orange-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-orange-700 disabled:opacity-60">Hifadhi</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ---- data helpers ----------------------------------------------------------
 
 // Money is stored in cents (1/100 of a shilling) — show whole shillings
@@ -253,6 +312,7 @@ function Dashboard({ admin, onSignOut }) {
   const [tab, setTab] = useState("overview");
   const [selectedId, setSelectedId] = useState(null);
   const [modal, setModal] = useState(null); // { kind: 'reject' | 'suspend', id }
+  const [catEditId, setCatEditId] = useState(null); // vendor whose categories are being edited
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [toast, setToast] = useState(null);
@@ -359,6 +419,22 @@ function Dashboard({ admin, onSignOut }) {
       ? await act(v.id, "reject", { reason }, `Ombi la ${v.name} limekataliwa`)
       : await act(v.id, "suspend", { reason }, `${v.name} imesimamishwa`);
     if (ok) setModal(null);
+  }
+
+  // Saves corrected categories for one business
+  async function saveVendorCategories(names) {
+    if (busy) return;
+    setBusy(true);
+    try {
+      const { categories: saved } = await request(`/admin/vendors/${catEditId}/categories`, { method: "PATCH", body: { categories: names } });
+      setVendors((prev) => prev.map((v) => (v.id === catEditId ? { ...v, categories: saved } : v)));
+      setCatEditId(null);
+      notify("Makundi yamebadilishwa");
+    } catch (err) {
+      if (!handleAuthError(err)) notify(err.message);
+    } finally {
+      setBusy(false);
+    }
   }
 
   // Opens or closes a category for new registrations
@@ -584,7 +660,10 @@ function Dashboard({ admin, onSignOut }) {
                     </dl>
 
                     <div className="mt-5">
-                      <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Makundi ya Bidhaa</p>
+                      <div className="mb-2 flex items-center justify-between">
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Makundi ya Bidhaa</p>
+                        <button onClick={() => setCatEditId(selected.id)} className="text-xs font-bold text-sky-700 hover:underline">Badilisha</button>
+                      </div>
                       <div className="flex flex-wrap gap-1.5">
                         {selected.categories.map((c) => (
                           <span key={c} className="rounded-full bg-orange-50 px-3 py-1 text-xs font-semibold text-orange-700">{c}</span>
@@ -667,7 +746,13 @@ function Dashboard({ admin, onSignOut }) {
                       <td className="px-4 py-3">
                         <p className="font-bold text-slate-900">{v.name}</p>
                         <p className="text-xs text-slate-500">{v.owner}</p>
-                        {v.reason && <p className="mt-0.5 max-w-xs text-[11px] text-red-500">Sababu: {v.reason}</p>}
+                        <p className="mt-1 flex flex-wrap items-center gap-1">
+                          {v.categories.map((c) => (
+                            <span key={c} className="rounded-full bg-orange-50 px-2 py-0.5 text-[11px] font-semibold text-orange-700">{c}</span>
+                          ))}
+                          <button onClick={() => setCatEditId(v.id)} className="text-[11px] font-bold text-sky-700 hover:underline">Badilisha</button>
+                        </p>
+                        {v.reason &&<p className="mt-0.5 max-w-xs text-[11px] text-red-500">Sababu: {v.reason}</p>}
                       </td>
                       <td className="px-4 py-3 text-slate-600">{v.region}</td>
                       <td className="px-4 py-3 text-right font-semibold text-slate-800">{fmt(v.sales)}</td>
@@ -756,6 +841,15 @@ function Dashboard({ admin, onSignOut }) {
           busy={busy}
           onConfirm={confirmModal}
           onCancel={() => setModal(null)}
+        />
+      )}
+      {catEditId && vendors.find((v) => v.id === catEditId) && (
+        <CategoryModal
+          vendor={vendors.find((v) => v.id === catEditId)}
+          options={categories}
+          busy={busy}
+          onSave={saveVendorCategories}
+          onCancel={() => setCatEditId(null)}
         />
       )}
       {toast && (

@@ -311,8 +311,50 @@ async function updateCategory(req, res) {
   }
 }
 
+const vendorCategoriesSchema = z.object({
+  categories: z.array(z.string().trim().min(1).max(80)).min(1, 'Chagua angalau kundi moja').max(30),
+});
+
+/**
+ * PATCH /api/admin/vendors/:id/categories   body: { categories: [name, ...] }
+ * Lets an admin correct the categories a business registered under (any status).
+ * Names must exist in business_categories (open or closed — the admin may use a closed one).
+ * Products already listed keep working; the vendor just can't add new ones in a removed category.
+ */
+async function updateVendorCategories(req, res) {
+  const parsed = vendorCategoriesSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: 'Chagua angalau kundi moja', details: parsed.error.flatten().fieldErrors });
+  }
+  try {
+    const known = await prisma.businessCategory.findMany({ select: { name: true } });
+    const canonical = new Map(known.map((c) => [c.name.toLowerCase(), c.name]));
+    const unknown = parsed.data.categories.filter((c) => !canonical.has(c.toLowerCase()));
+    if (unknown.length) {
+      return res.status(400).json({ error: `Kundi halipo: ${unknown.join(', ')}`, details: { categories: unknown } });
+    }
+    const categories = [...new Set(parsed.data.categories.map((c) => canonical.get(c.toLowerCase())))];
+
+    const before = await prisma.vendor.findUnique({ where: { id: req.params.id }, select: { categories: true } });
+    if (!before) return res.status(404).json({ error: 'Muuzaji hajapatikana' });
+
+    // Make sure a matching product category exists, so the vendor can list products in it
+    for (const name of categories) {
+      const slug = slugify(name) || `kundi-${Buffer.from(name).toString('hex').slice(0, 8)}`;
+      await prisma.category.upsert({ where: { slug }, update: {}, create: { name, slug } });
+    }
+
+    await prisma.vendor.update({ where: { id: req.params.id }, data: { categories } });
+    console.info(`[audit] admin ${req.user.id} changed categories of vendor ${req.params.id}: [${before.categories.join(', ')}] -> [${categories.join(', ')}]`);
+    res.json({ categories });
+  } catch (err) {
+    console.error('updateVendorCategories error:', err);
+    res.status(500).json({ error: 'Imeshindikana kubadilisha makundi' });
+  }
+}
+
 module.exports = {
   getStats, listApplications, listVendors, getVendor, downloadDocument,
   approveVendor, rejectVendor, suspendVendor, reactivateVendor,
-  listCategories, createCategory, updateCategory,
+  listCategories, createCategory, updateCategory, updateVendorCategories,
 };
