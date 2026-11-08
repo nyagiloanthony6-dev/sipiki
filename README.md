@@ -70,11 +70,16 @@ against Beem's current documentation first.
 - **"Missing required environment variables"** → the log names the ones to add.
 - **Database errors after editing a `.sql` file** → never edit a migration that was already applied; add a new numbered file in `backend/db/migrations/`.
 
+## The admin page
+Open `/admin` on your website and sign in with the admin account from step 5. Admins can review applications
+(including the uploaded documents), approve, reject (with a reason), suspend and reactivate vendors — each action
+texts the vendor. The sign-in lasts 2 hours, then you are asked to sign in again. The page shows real data only;
+it needs `NEXT_PUBLIC_API_URL` to be set (see step 3).
+
 ## Not connected yet
-- `/admin` still shows sample data and has no login — the API for it exists (`/api/admin/...`), the page is not wired to it.
-  Until then treat `/admin` as a demo only.
 - Customer sign-up/checkout and mobile-money payments are not built (the payment code in `backend/src/services/stripe.service.js`
   is Stripe-based and does not cover M-Pesa / Tigo Pesa / Airtel Money).
+- The admin vendor list loads the 100 most recent reviewed vendors; paging comes later.
 
 ## Local development
 ```bash

@@ -1,20 +1,20 @@
 "use client";
 import Link from "next/link";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import {
   LayoutDashboard, ClipboardCheck, Store, Search, X, Check, FileText, Phone, Mail, MapPin,
-  Wallet, Eye, TrendingUp, Clock, Ban, RotateCcw, Banknote, Users,
+  Wallet, Eye, TrendingUp, Clock, Ban, RotateCcw, Banknote, Users, LogOut, Lock, Loader2,
 } from "lucide-react";
+import { apiConfigured, request, fetchDocumentBlob, getToken, setToken } from "../lib/adminApi";
 
 // ============================================================================
 // SIPIKI — Admin dashboard
 // Tabs: Muhtasari (overview) · Maombi (pending approvals) · Wauzaji (all vendors)
-// State changes here mirror the vendors.status enum in the schema:
-//   pending → active (approve) | rejected (reject);  active ⇄ suspended
-// In the real app each action is PATCH /api/admin/vendors/:id/status.
+// Works only with the real API (NEXT_PUBLIC_API_URL): admins sign in, and every
+// number and action here comes from /api/admin/*. Status changes mirror the
+// vendors.status enum:  pending → active (approve) | rejected (reject);  active ⇄ suspended
 // ============================================================================
 
-const COMMISSION_RATE = 0.1; // matches vendors.commission_rate default (10%)
 
 const REJECT_REASONS = [
   "Nyaraka hazisomeki vizuri",
@@ -38,20 +38,6 @@ const STATUS = {
   suspended: { label: "Imesimamishwa", cls: "bg-slate-200 text-slate-700" },
   rejected: { label: "Imekataliwa", cls: "bg-red-100 text-red-700" },
 };
-
-const INITIAL_VENDORS = [
-  { id: "v1", name: "Amina Fashion", owner: "Amina Juma Mrisho", phone: "0712 345 678", email: "amina@aminafashion.co.tz", region: "Dar es Salaam", location: "Kariakoo, Mtaa wa Sikukuu", type: "Mtu Binafsi", categories: ["Mavazi"], tin: "123-456-789", payout: "M-Pesa · 0712 345 678", status: "active", appliedAt: "02 Sep 2026", sales: 4850000, orders: 142 },
-  { id: "v2", name: "Tech Hub Kariakoo", owner: "Said Omari Bakari", phone: "0754 221 908", email: "info@techhubkko.co.tz", region: "Dar es Salaam", location: "Kariakoo, Mtaa wa Congo", type: "Kampuni (Ltd)", categories: ["Simu na Vifaa"], tin: "208-114-337", payout: "Tigo Pesa · 0714 880 241", status: "active", appliedAt: "28 Aug 2026", sales: 18900000, orders: 96 },
-  { id: "v3", name: "Juma Shoes", owner: "Juma Hamisi Selemani", phone: "0765 410 322", email: "jumashoes@gmail.com", region: "Arusha", location: "Soko Kuu, Arusha", type: "Mtu Binafsi", categories: ["Viatu"], tin: "311-902-445", payout: "Airtel Money · 0685 410 322", status: "active", appliedAt: "05 Sep 2026", sales: 2310000, orders: 58 },
-  { id: "v4", name: "Zawadi Beauty", owner: "Zawadi Peter Mwakyusa", phone: "0713 556 019", email: "zawadi@zawadibeauty.co.tz", region: "Mbeya", location: "Soko la Mwanjelwa", type: "Mtu Binafsi", categories: ["Urembo"], tin: "187-660-214", payout: "M-Pesa · 0713 556 019", status: "suspended", appliedAt: "11 Aug 2026", sales: 1120000, orders: 47 },
-  { id: "v5", name: "Kariakoo Leather", owner: "Hassan Ali Mkwawa", phone: "0719 004 873", email: "kleather@yahoo.com", region: "Dar es Salaam", location: "Kariakoo, Mtaa wa Narung'ombe", type: "Ushirika / Kikundi", categories: ["Mikoba na Vifaa", "Viatu"], tin: "455-120-908", payout: "M-Pesa · 0719 004 873", status: "active", appliedAt: "19 Sep 2026", sales: 3260000, orders: 77 },
-  // ---- Pending applications ----
-  { id: "v6", name: "Neema Collections", owner: "Neema Daniel Kimaro", phone: "0752 118 640", email: "neema.collections@gmail.com", region: "Kilimanjaro", location: "Moshi Mjini, Soko Kuu", type: "Mtu Binafsi", categories: ["Mavazi", "Mikoba na Vifaa"], tin: "532-771-016", payout: "Tigo Pesa · 0652 118 640", status: "pending", appliedAt: "14 Okt 2026", sales: 0, orders: 0, docs: ["Kitambulisho (NIDA).pdf", "Leseni ya Biashara.pdf", "Cheti cha TIN.jpg"] },
-  { id: "v7", name: "Mobile Zone Mwanza", owner: "Baraka Samson Lukiko", phone: "0768 903 214", email: "baraka@mobilezone.co.tz", region: "Mwanza", location: "Nyamagana, Mtaa wa Kenyatta", type: "Kampuni (Ltd)", categories: ["Simu na Vifaa"], tin: "260-415-873", payout: "M-Pesa · 0768 903 214", status: "pending", appliedAt: "14 Okt 2026", sales: 0, orders: 0, docs: ["Pasipoti.jpg", "BRELA Certificate.pdf", "TIN Certificate.pdf"] },
-  { id: "v8", name: "Mama Fatuma Store", owner: "Fatuma Rashid Mussa", phone: "0715 667 820", email: "mamafatuma@gmail.com", region: "Dodoma", location: "Soko Kuu la Majengo", type: "Mtu Binafsi", categories: ["Mavazi"], tin: "398-052-661", payout: "Airtel Money · 0786 667 820", status: "pending", appliedAt: "13 Okt 2026", sales: 0, orders: 0, docs: ["NIDA.jpg", "Leseni.pdf", "TIN.pdf"] },
-  { id: "v9", name: "Urembo wa Pwani", owner: "Mwanaidi Khamis Juma", phone: "0777 340 195", email: "urembopwani@gmail.com", region: "Unguja Mjini Magharibi", location: "Darajani, Zanzibar", type: "Mtu Binafsi", categories: ["Urembo"], tin: "144-309-572", payout: "M-Pesa · 0777 340 195", status: "pending", appliedAt: "12 Okt 2026", sales: 0, orders: 0, docs: ["Kitambulisho.jpg", "Leseni ya Biashara.pdf", "TIN.jpg"] },
-  { id: "v10", name: "Sole Mates", owner: "Daudi Elias Mushi", phone: "0743 887 054", email: "solemates.tz@gmail.com", region: "Dar es Salaam", location: "Mlimani City, Sinza", type: "Mtu Binafsi", categories: ["Viatu"], tin: "611-248-390", payout: "Tigo Pesa · 0713 887 054", status: "rejected", appliedAt: "03 Okt 2026", sales: 0, orders: 0, reason: "Namba ya TIN haioani na jina la biashara" },
-];
 
 const fmt = (n) => `TSh ${n.toLocaleString("en-US")}`;
 const fmtShort = (n) => (n >= 1_000_000 ? `TSh ${(n / 1_000_000).toFixed(1)}M` : fmt(n));
@@ -79,7 +65,7 @@ function StatCard({ icon: Icon, label, value, sub, tone }) {
 }
 
 // Reason dialog shared by "reject application" and "suspend vendor"
-function ReasonModal({ title, reasons, confirmLabel, confirmCls, onConfirm, onCancel }) {
+function ReasonModal({ title, reasons, confirmLabel, confirmCls, onConfirm, onCancel, busy }) {
   const [reason, setReason] = useState(reasons[0]);
   const [note, setNote] = useState("");
   const [error, setError] = useState("");
@@ -114,38 +100,214 @@ function ReasonModal({ title, reasons, confirmLabel, confirmCls, onConfirm, onCa
 
         <div className="mt-5 flex justify-end gap-2">
           <button onClick={onCancel} className="rounded-xl px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-stone-100">Ghairi</button>
-          <button onClick={submit} className={`rounded-xl px-5 py-2.5 text-sm font-bold text-white ${confirmCls}`}>{confirmLabel}</button>
+          <button onClick={submit} disabled={busy} className={`rounded-xl px-5 py-2.5 text-sm font-bold text-white disabled:opacity-60 ${confirmCls}`}>{confirmLabel}</button>
         </div>
       </div>
     </div>
   );
 }
 
-// ---- main component --------------------------------------------------------
+// ---- data helpers ----------------------------------------------------------
+
+// Money is stored in cents (1/100 of a shilling) — show whole shillings
+const toTsh = (cents) => Math.round((cents || 0) / 100);
+
+const MONTHS = ["Jan", "Feb", "Mac", "Apr", "Mei", "Jun", "Jul", "Ago", "Sep", "Okt", "Nov", "Des"];
+function fmtDate(iso) {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  return `${String(d.getDate()).padStart(2, "0")} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+}
+
+// API vendor → the shape the screens use
+function toVendor(v) {
+  return {
+    id: v.id,
+    name: v.storeName,
+    owner: v.user?.fullName || "",
+    phone: v.ownerPhone || "",
+    email: v.user?.email || "",
+    region: v.region || "",
+    location: v.location || "",
+    type: v.businessType || "",
+    categories: v.categories || [],
+    status: v.status,
+    appliedAt: fmtDate(v.createdAt),
+    sales: toTsh(v.salesCents),
+    orders: v.itemsSold || 0,
+    reason: v.status === "rejected" ? v.rejectionReason : v.status === "suspended" ? v.suspensionReason : undefined,
+    docs: (v.documents || []).map((d) => ({ id: d.id, name: d.originalName || d.type })),
+    // filled in when an application is opened (the list does not carry these)
+    tin: v.tin, payout: v.payoutProvider ? `${v.payoutProvider} · ${v.payoutPhone || ""}` : undefined,
+  };
+}
+
+// ---- sign-in screen ----------------------------------------------------------
+
+function LoginScreen({ onSignedIn, notice }) {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  async function submit(e) {
+    e.preventDefault();
+    if (busy) return;
+    setBusy(true);
+    setError("");
+    try {
+      const data = await request("/auth/login", { method: "POST", body: { email: email.trim(), password }, token: null });
+      // Only admins may continue; a customer or vendor token is never kept
+      if (data.user?.role !== "admin") {
+        setError("Akaunti hii haina ruhusa ya kuingia hapa.");
+        return;
+      }
+      setToken(data.token);
+      onSignedIn(data.user);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-slate-900 px-4" style={{ fontFamily: "'Segoe UI', system-ui, sans-serif" }}>
+      <form onSubmit={submit} className="w-full max-w-sm rounded-2xl bg-white p-7 shadow-2xl">
+        <div className="mb-5 flex items-baseline gap-3">
+          <span className="bg-gradient-to-r from-orange-500 to-amber-400 bg-clip-text text-3xl font-extrabold text-transparent">Sipiki</span>
+          <span className="rounded-full bg-sky-700 px-2.5 py-0.5 text-[11px] font-bold tracking-wide text-white">ADMIN</span>
+        </div>
+        <h1 className="text-lg font-extrabold text-slate-900">Ingia kama Msimamizi</h1>
+        {notice && <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">{notice}</p>}
+
+        <label className="mt-4 block text-sm font-semibold text-slate-800" htmlFor="admin-email">Barua pepe</label>
+        <input id="admin-email" type="email" autoComplete="username" required value={email} onChange={(e) => setEmail(e.target.value)}
+          className="mt-1 w-full rounded-xl border border-stone-300 px-3 py-2.5 text-sm outline-none focus:border-orange-500" />
+
+        <label className="mt-3 block text-sm font-semibold text-slate-800" htmlFor="admin-password">Nenosiri</label>
+        <input id="admin-password" type="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)}
+          className="mt-1 w-full rounded-xl border border-stone-300 px-3 py-2.5 text-sm outline-none focus:border-orange-500" />
+
+        {error && <p role="alert" className="mt-3 text-sm font-medium text-red-600">{error}</p>}
+
+        <button type="submit" disabled={busy} className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-orange-600 py-3 text-sm font-bold text-white transition hover:bg-orange-700 disabled:opacity-60">
+          {busy ? <Loader2 size={16} className="animate-spin" /> : <Lock size={16} />} {busy ? "Inaingia..." : "Ingia"}
+        </button>
+        <Link href="/" className="mt-4 block text-center text-xs text-slate-400 hover:text-slate-600">← Rudi kwenye duka</Link>
+      </form>
+    </div>
+  );
+}
+
+// ---- session wrapper (what the /admin page renders) -------------------------
 
 export default function SipikiAdmin() {
-  const [vendors, setVendors] = useState(INITIAL_VENDORS);
+  const [admin, setAdmin] = useState(null);
+  const [checking, setChecking] = useState(true);
+  const [notice, setNotice] = useState("");
+
+  const signOut = useCallback((message = "") => {
+    setToken(null);
+    setAdmin(null);
+    setNotice(message);
+  }, []);
+
+  // On load: if a token is already stored, confirm with the server that it is still valid and still an admin
+  useEffect(() => {
+    if (!apiConfigured) { setChecking(false); return; }
+    if (!getToken()) { setChecking(false); return; }
+    request("/auth/me")
+      .then((d) => (d.user?.role === "admin" ? setAdmin(d.user) : signOut()))
+      .catch(() => signOut())
+      .finally(() => setChecking(false));
+  }, [signOut]);
+
+  if (!apiConfigured) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-900 px-4">
+        <div className="max-w-md rounded-2xl bg-white p-7 text-sm text-slate-700 shadow-2xl">
+          <h1 className="text-lg font-extrabold text-slate-900">Seva haijaunganishwa</h1>
+          <p className="mt-2">Ukurasa huu unahitaji anwani ya API. Weka <code className="rounded bg-stone-100 px-1">NEXT_PUBLIC_API_URL</code> kisha ujenge upya (redeploy) tovuti.</p>
+        </div>
+      </div>
+    );
+  }
+  if (checking) {
+    return <div className="flex min-h-screen items-center justify-center bg-slate-900 text-slate-300"><Loader2 className="animate-spin" /></div>;
+  }
+  if (!admin) return <LoginScreen onSignedIn={(u) => { setNotice(""); setAdmin(u); }} notice={notice} />;
+  return <Dashboard admin={admin} onSignOut={signOut} />;
+}
+
+// ---- the dashboard -----------------------------------------------------------
+
+function Dashboard({ admin, onSignOut }) {
+  const [vendors, setVendors] = useState([]); // every vendor, pending included
+  const [serverStats, setServerStats] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
+  const [busy, setBusy] = useState(false);
   const [tab, setTab] = useState("overview");
-  const [selectedId, setSelectedId] = useState("v6");
+  const [selectedId, setSelectedId] = useState(null);
   const [modal, setModal] = useState(null); // { kind: 'reject' | 'suspend', id }
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [toast, setToast] = useState(null);
 
-  const pending = vendors.filter((v) => v.status === "pending");
+  // A 401 anywhere means the 2-hour token ran out (or the admin was demoted)
+  const handleAuthError = useCallback((err) => {
+    if (err?.status === 401 || err?.status === 403) {
+      onSignOut("Muda wa kuingia umeisha. Tafadhali ingia tena.");
+      return true;
+    }
+    return false;
+  }, [onSignOut]);
+
+  const load = useCallback(async () => {
+    try {
+      const [stats, apps, rest] = await Promise.all([
+        request("/admin/stats"),
+        request("/admin/applications"),
+        request("/admin/vendors?limit=100"),
+      ]);
+      setServerStats(stats);
+      setVendors([...apps.data.map(toVendor), ...rest.data.map(toVendor)]);
+      setLoadError("");
+    } catch (err) {
+      if (!handleAuthError(err)) setLoadError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [handleAuthError]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const pending = useMemo(() => vendors.filter((v) => v.status === "pending"), [vendors]);
   const selected = pending.find((v) => v.id === selectedId) || pending[0] || null;
 
-  const stats = useMemo(() => {
-    const active = vendors.filter((v) => v.status === "active");
-    const totalSales = vendors.reduce((s, v) => s + v.sales, 0);
-    return {
-      active: active.length,
-      pending: pending.length,
-      totalSales,
-      commission: Math.round(totalSales * COMMISSION_RATE),
-      orders: vendors.reduce((s, v) => s + v.orders, 0),
-    };
-  }, [vendors, pending.length]);
+  // Opening an application loads its detail (TIN, payout account), which the list does not include
+  const selectedKey = selected?.id;
+  useEffect(() => {
+    if (!selectedKey) return;
+    request(`/admin/vendors/${selectedKey}`)
+      .then((d) =>
+        setVendors((prev) => prev.map((v) =>
+          v.id === selectedKey
+            ? { ...v, tin: d.tin, payout: `${d.payoutProvider || ""} · ${d.payoutPhone || ""}${d.payoutAccountName ? ` (${d.payoutAccountName})` : ""}`, nida: d.nidaMasked, detailLoaded: true }
+            : v
+        ))
+      )
+      .catch((err) => { handleAuthError(err); });
+  }, [selectedKey, handleAuthError]);
+
+  const stats = useMemo(() => ({
+    active: serverStats?.vendors.active ?? 0,
+    pending: serverStats?.vendors.pending ?? pending.length,
+    totalSales: toTsh(serverStats?.totalSalesCents),
+    commission: toTsh(serverStats?.commissionCents),
+    orders: serverStats?.ordersCount ?? 0,
+  }), [serverStats, pending.length]);
 
   const filteredVendors = useMemo(
     () =>
@@ -161,34 +323,53 @@ export default function SipikiAdmin() {
 
   function notify(message) {
     setToast(message);
-    setTimeout(() => setToast(null), 2500);
+    setTimeout(() => setToast(null), 3000);
   }
 
-  // Applies a status change (the real app would PATCH the API here)
-  function updateStatus(id, status, reason) {
-    setVendors((prev) => prev.map((v) => (v.id === id ? { ...v, status, reason: reason || undefined } : v)));
-  }
-
-  function approve(v) {
-    updateStatus(v.id, "active");
-    notify(`${v.name} imeidhinishwa — SMS imetumwa kwa muuzaji`);
-  }
-
-  function confirmModal(reason) {
-    const v = vendors.find((x) => x.id === modal.id);
-    if (modal.kind === "reject") {
-      updateStatus(v.id, "rejected", reason);
-      notify(`Ombi la ${v.name} limekataliwa`);
-    } else {
-      updateStatus(v.id, "suspended", reason);
-      notify(`${v.name} imesimamishwa`);
+  // Sends one action to the API, then reloads so the screen shows what the server really holds
+  async function act(id, action, body, okMessage) {
+    if (busy) return false;
+    setBusy(true);
+    try {
+      await request(`/admin/vendors/${id}/${action}`, { method: "POST", body: body || undefined });
+      notify(okMessage);
+      await load();
+      return true;
+    } catch (err) {
+      if (!handleAuthError(err)) {
+        notify(err.status === 409 ? "Hali ya muuzaji imebadilika tayari. Orodha imesasishwa." : err.message);
+        if (err.status === 409) await load();
+      }
+      return false;
+    } finally {
+      setBusy(false);
     }
-    setModal(null);
   }
 
-  function reactivate(v) {
-    updateStatus(v.id, "active");
-    notify(`${v.name} imerudishwa hewani`);
+  const approve = (v) => act(v.id, "approve", null, `${v.name} imeidhinishwa — SMS imetumwa kwa muuzaji`);
+  const reactivate = (v) => act(v.id, "reactivate", null, `${v.name} imerudishwa hewani`);
+
+  async function confirmModal(reason) {
+    const v = vendors.find((x) => x.id === modal.id);
+    const ok = modal.kind === "reject"
+      ? await act(v.id, "reject", { reason }, `Ombi la ${v.name} limekataliwa`)
+      : await act(v.id, "suspend", { reason }, `${v.name} imesimamishwa`);
+    if (ok) setModal(null);
+  }
+
+  // Documents need the token, so fetch as a file and open it from a temporary local address.
+  // The tab is opened first (inside the click) so the browser doesn't block it as a pop-up.
+  async function openDoc(vendorId, doc) {
+    const tabRef = window.open("", "_blank");
+    try {
+      const blob = await fetchDocumentBlob(vendorId, doc.id);
+      const url = URL.createObjectURL(blob);
+      if (tabRef) tabRef.location.href = url; else window.location.href = url;
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch (err) {
+      if (tabRef) tabRef.close();
+      if (!handleAuthError(err)) notify(err.message);
+    }
   }
 
   const tabs = [
@@ -209,8 +390,11 @@ export default function SipikiAdmin() {
             <span className="rounded-full bg-sky-700 px-2.5 py-0.5 text-[11px] font-bold tracking-wide text-white">ADMIN</span>
           </Link>
           <div className="flex items-center gap-3">
-            <span className="hidden text-sm text-slate-300 sm:inline">Karibu, Msimamizi</span>
-            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-amber-400 text-sm font-extrabold text-slate-900">A</span>
+            <span className="hidden text-sm text-slate-300 sm:inline">Karibu, {admin.fullName}</span>
+            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-amber-400 text-sm font-extrabold text-slate-900">{(admin.fullName || "A").charAt(0).toUpperCase()}</span>
+            <button onClick={() => onSignOut()} className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-slate-300 hover:bg-slate-800 hover:text-white">
+              <LogOut size={15} /> Toka
+            </button>
           </div>
         </div>
 
@@ -232,8 +416,15 @@ export default function SipikiAdmin() {
       </header>
 
       <main className="mx-auto max-w-7xl px-6 py-8">
+        {loading && <div className="flex justify-center py-20 text-slate-400"><Loader2 className="animate-spin" /></div>}
+        {!loading && loadError && (
+          <div className="mb-6 flex items-center justify-between gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            <span>{loadError}</span>
+            <button onClick={load} className="font-bold underline">Jaribu tena</button>
+          </div>
+        )}
         {/* ================= Overview ================= */}
-        {tab === "overview" && (
+        {!loading && tab === "overview" && (
           <div className="space-y-8">
             <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
               <StatCard icon={Store} label="Wauzaji Hai" value={stats.active} sub="Wanaouza sasa hivi" tone="bg-emerald-100 text-emerald-700" />
@@ -290,7 +481,7 @@ export default function SipikiAdmin() {
         )}
 
         {/* ================= Applications ================= */}
-        {tab === "applications" && (
+        {!loading && tab === "applications" && (
           <div>
             <h1 className="text-2xl font-extrabold text-slate-900">Maombi ya Biashara</h1>
             <p className="mb-6 text-sm text-slate-500">Kagua nyaraka kisha idhinisha au kataa kila ombi.</p>
@@ -341,8 +532,9 @@ export default function SipikiAdmin() {
                         { icon: Phone, label: "Simu", value: selected.phone },
                         { icon: Mail, label: "Barua pepe", value: selected.email },
                         { icon: MapPin, label: "Eneo", value: `${selected.location}, ${selected.region}` },
-                        { icon: FileText, label: "TIN", value: selected.tin },
-                        { icon: Wallet, label: "Malipo", value: selected.payout },
+                        { icon: FileText, label: "TIN", value: selected.tin || "…" },
+                        { icon: FileText, label: "NIDA", value: selected.nida || "…" },
+                        { icon: Wallet, label: "Malipo", value: selected.payout || "…" },
                       ].map(({ icon: Icon, label, value }) => (
                         <div key={label} className="flex items-start gap-2.5">
                           <span className="mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-stone-100 text-stone-500"><Icon size={15} /></span>
@@ -366,23 +558,24 @@ export default function SipikiAdmin() {
                     <div className="mt-5">
                       <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Nyaraka</p>
                       <ul className="space-y-2">
+                        {selected.docs.length === 0 && <li className="text-sm text-slate-400">Hakuna nyaraka.</li>}
                         {selected.docs.map((d) => (
-                          <li key={d} className="flex items-center justify-between rounded-xl border border-stone-200 px-3 py-2.5">
+                          <li key={d.id} className="flex items-center justify-between rounded-xl border border-stone-200 px-3 py-2.5">
                             <span className="flex min-w-0 items-center gap-2 text-sm text-slate-700">
                               <FileText size={16} className="flex-shrink-0 text-slate-400" />
-                              <span className="truncate">{d}</span>
+                              <span className="truncate">{d.name}</span>
                             </span>
-                            <button className="flex items-center gap-1 text-xs font-bold text-sky-700 hover:underline"><Eye size={14} /> Tazama</button>
+                            <button onClick={() => openDoc(selected.id, d)} className="flex items-center gap-1 text-xs font-bold text-sky-700 hover:underline"><Eye size={14} /> Tazama</button>
                           </li>
                         ))}
                       </ul>
                     </div>
 
                     <div className="mt-6 flex flex-col gap-2 border-t border-stone-100 pt-5 sm:flex-row">
-                      <button onClick={() => approve(selected)} className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3 text-sm font-bold text-white transition hover:bg-emerald-700">
+                      <button onClick={() => approve(selected)} disabled={busy} className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3 text-sm font-bold text-white transition hover:bg-emerald-700 disabled:opacity-60">
                         <Check size={17} /> Idhinisha
                       </button>
-                      <button onClick={() => setModal({ kind: "reject", id: selected.id })} className="flex flex-1 items-center justify-center gap-2 rounded-xl border-2 border-red-200 py-3 text-sm font-bold text-red-600 transition hover:bg-red-50">
+                      <button onClick={() => setModal({ kind: "reject", id: selected.id })} disabled={busy} className="flex flex-1 items-center justify-center gap-2 rounded-xl border-2 border-red-200 py-3 text-sm font-bold text-red-600 transition hover:bg-red-50">
                         <X size={17} /> Kataa
                       </button>
                     </div>
@@ -394,7 +587,7 @@ export default function SipikiAdmin() {
         )}
 
         {/* ================= Vendors ================= */}
-        {tab === "vendors" && (
+        {!loading && tab === "vendors" && (
           <div>
             <h1 className="text-2xl font-extrabold text-slate-900">Wauzaji Wote</h1>
             <p className="mb-5 text-sm text-slate-500">Simamia akaunti za wauzaji waliosajiliwa.</p>
@@ -445,12 +638,12 @@ export default function SipikiAdmin() {
                       <td className="px-4 py-3"><Badge status={v.status} /></td>
                       <td className="px-4 py-3 text-right">
                         {v.status === "active" && (
-                          <button onClick={() => setModal({ kind: "suspend", id: v.id })} className="inline-flex items-center gap-1 rounded-lg border border-red-200 px-3 py-1.5 text-xs font-bold text-red-600 hover:bg-red-50">
+                          <button onClick={() => setModal({ kind: "suspend", id: v.id })} disabled={busy} className="inline-flex items-center gap-1 rounded-lg border border-red-200 px-3 py-1.5 text-xs font-bold text-red-600 hover:bg-red-50">
                             <Ban size={13} /> Simamisha
                           </button>
                         )}
                         {v.status === "suspended" && (
-                          <button onClick={() => reactivate(v)} className="inline-flex items-center gap-1 rounded-lg border border-emerald-200 px-3 py-1.5 text-xs font-bold text-emerald-700 hover:bg-emerald-50">
+                          <button onClick={() => reactivate(v)} disabled={busy} className="inline-flex items-center gap-1 rounded-lg border border-emerald-200 px-3 py-1.5 text-xs font-bold text-emerald-700 hover:bg-emerald-50">
                             <RotateCcw size={13} /> Rudisha
                           </button>
                         )}
@@ -475,6 +668,7 @@ export default function SipikiAdmin() {
           reasons={modal.kind === "reject" ? REJECT_REASONS : SUSPEND_REASONS}
           confirmLabel={modal.kind === "reject" ? "Kataa Ombi" : "Simamisha"}
           confirmCls="bg-red-600 hover:bg-red-700"
+          busy={busy}
           onConfirm={confirmModal}
           onCancel={() => setModal(null)}
         />
