@@ -392,7 +392,7 @@ function StarRating({ rating, reviews }) {
   );
 }
 
-function NavPill({ icon: Icon, emoji, label, className, href }) {
+function NavPill({ icon: Icon, emoji, label, className, href, onClick }) {
   const cls = `flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold transition ${className}`;
   const content = (
     <>
@@ -403,7 +403,7 @@ function NavPill({ icon: Icon, emoji, label, className, href }) {
   return href ? (
     <Link href={href} className={cls}>{content}</Link>
   ) : (
-    <button className={cls}>{content}</button>
+    <button onClick={onClick} className={cls}>{content}</button>
   );
 }
 
@@ -413,6 +413,12 @@ export default function SipikiListing() {
   const [cart, setCart] = useState([]); // { productId, quantity }
   const [wishlist, setWishlist] = useState([]);
   const [cartOpen, setCartOpen] = useState(false);
+  // Header buttons whose pages are not built yet say so, instead of silently doing nothing
+  const [notice, setNotice] = useState(null);
+  function comingSoon(text, sellerLink = false) {
+    setNotice({ text, sellerLink });
+    setTimeout(() => setNotice(null), 5000);
+  }
 
   const filtered = useMemo(() => {
     return PRODUCTS.filter((p) => {
@@ -469,8 +475,8 @@ export default function SipikiListing() {
 
           <div className="flex flex-wrap items-center gap-2">
             <NavPill href="/" emoji="🏠" label="Nyumbani" className="bg-orange-600 text-white hover:bg-orange-500" />
-            <NavPill emoji="📦" label="Maagizo" className="bg-purple-600 text-white hover:bg-purple-500" />
-            <NavPill icon={LayoutDashboard} label="Dashboard" className="border border-slate-600 text-slate-200 hover:border-slate-400" />
+            <NavPill onClick={() => comingSoon("Maagizo yatapatikana punde — akaunti za wateja bado hazijafunguliwa.")} emoji="📦" label="Maagizo" className="bg-purple-600 text-white hover:bg-purple-500" />
+            <NavPill onClick={() => comingSoon("Dashboard ya wauzaji inakuja hivi karibuni.")} icon={LayoutDashboard} label="Dashboard" className="border border-slate-600 text-slate-200 hover:border-slate-400" />
             <NavPill href="/admin" icon={ShieldCheck} label="Admin" className="bg-sky-700 text-white hover:bg-sky-600" />
             <button
               onClick={() => setCartOpen(true)}
@@ -479,11 +485,20 @@ export default function SipikiListing() {
               <ShoppingCart size={15} />
               {itemCount}
             </button>
-            <NavPill label="Ingia" className="border border-amber-400 text-amber-300 hover:bg-amber-400/10" />
-            <NavPill label="Jiandikishe" className="bg-amber-400 text-slate-900 hover:bg-amber-300" />
+            <NavPill onClick={() => comingSoon("Kuingia kwa wateja kunakuja hivi karibuni.", true)} label="Ingia" className="border border-amber-400 text-amber-300 hover:bg-amber-400/10" />
+            <NavPill onClick={() => comingSoon("Akaunti za wateja zinakuja hivi karibuni.", true)} label="Jiandikishe" className="bg-amber-400 text-slate-900 hover:bg-amber-300" />
           </div>
         </div>
       </header>
+
+      {notice && (
+        <div role="status" className="fixed left-1/2 top-20 z-50 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 rounded-xl bg-slate-900 px-4 py-3 text-sm text-white shadow-xl">
+          <p>{notice.text}</p>
+          {notice.sellerLink && (
+            <p className="mt-1">Unataka kuuza? <Link href="/register" className="font-bold text-amber-300 underline">Fungua Duka Lako</Link></p>
+          )}
+        </div>
+      )}
 
       {/* ---------------- Search bar ---------------- */}
       <div className="border-b border-stone-200 bg-white">
