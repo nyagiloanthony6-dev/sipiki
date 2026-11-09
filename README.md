@@ -109,6 +109,12 @@ cd frontend && cp .env.example .env.local && npm install && npm run dev         
 ```
 
 
+**Sellers changing their own categories.** In `/vendor` → Wasifu → "Makundi ya Biashara" an approved seller can add or remove
+categories (`PATCH /api/vendors/me/categories`). They can **add only categories the admin has open**; a category they already
+have can always be removed (even if the admin closed it later), and at least one must remain. Products already listed stay in
+the shop; the seller just can't add new products under a removed category. Each change is written to the Railway log
+(`[audit] vendor ... changed own categories`). The admin can still correct any business's categories from `/admin`.
+
 ## Customer orders (guest checkout)
 
 Customers need **no account**. They add products to a cart (kept in the browser), then enter a **phone number and delivery

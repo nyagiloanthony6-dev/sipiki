@@ -347,8 +347,57 @@ async function deleteImage(req, res) {
   }
 }
 
+const myCategoriesSchema = z.object({
+  categories: z.array(z.string().trim().min(1).max(80)).min(1, 'Chagua angalau kundi moja').max(30),
+});
+
+/**
+ * PATCH /api/vendors/me/categories   body: { categories: [name, ...] }
+ * An approved seller adds or removes their own business categories.
+ *  - A category can be ADDED only while the admin has it open for registration.
+ *  - A category the seller already has can always be removed (even if the admin closed it since).
+ *  - At least one must remain. Products already listed stay; the seller just can't add new ones in a removed category.
+ */
+async function updateMyCategories(req, res) {
+  const parsed = myCategoriesSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: 'Chagua angalau kundi moja' });
+  try {
+    const vendor = await activeVendor(req, res);
+    if (!vendor) return;
+
+    const known = await prisma.businessCategory.findMany({ select: { name: true, isActive: true } });
+    const byLower = new Map(known.map((c) => [c.name.toLowerCase(), c]));
+    const unknown = parsed.data.categories.filter((c) => !byLower.has(c.toLowerCase()));
+    if (unknown.length) return res.status(400).json({ error: `Kundi halipo: ${unknown.join(', ')}` });
+
+    const chosen = [...new Set(parsed.data.categories.map((c) => byLower.get(c.toLowerCase()).name))];
+    const current = new Set((vendor.categories || []).map((c) => c.toLowerCase()));
+    const closedNew = chosen.filter((n) => !current.has(n.toLowerCase()) && !byLower.get(n.toLowerCase()).isActive);
+    if (closedNew.length) {
+      return res.status(400).json({ error: `Kundi hili halipokei biashara mpya kwa sasa: ${closedNew.join(', ')}. Wasiliana na Sipiki.` });
+    }
+
+    for (const name of chosen) {
+      const slug = slugify(name) || `kundi-${Buffer.from(name).toString('hex').slice(0, 8)}`;
+      await prisma.category.upsert({ where: { slug }, update: {}, create: { name, slug } });
+    }
+    const chosenLower = new Set(chosen.map((n) => n.toLowerCase()));
+    const removed = (vendor.categories || []).filter((c) => !chosenLower.has(c.toLowerCase()));
+    const productsInRemoved = removed.length
+      ? await prisma.product.count({ where: { vendorId: vendor.id, deletedAt: null, category: { name: { in: removed } } } })
+      : 0;
+
+    await prisma.vendor.update({ where: { id: vendor.id }, data: { categories: chosen } });
+    console.info(`[audit] vendor ${vendor.id} changed own categories: [${(vendor.categories || []).join(', ')}] -> [${chosen.join(', ')}]`);
+    res.json({ categories: chosen, productsInRemoved });
+  } catch (err) {
+    console.error('updateMyCategories error:', err);
+    res.status(500).json({ error: 'Imeshindikana kubadilisha makundi' });
+  }
+}
+
 module.exports = {
-  getMe, getSummary, getMyCategories, listMyProducts,
+  getMe, getSummary, getMyCategories, updateMyCategories, listMyProducts,
   createProduct, updateProduct, deleteProduct,
   handleImageUpload, addImage, deleteImage,
 };

@@ -33,6 +33,7 @@ router.patch('/me/products/:id', ...vendorOnly, portalWriteLimiter, portal.updat
 router.delete('/me/products/:id', ...vendorOnly, portalWriteLimiter, portal.deleteProduct);
 router.post('/me/products/:id/images', ...vendorOnly, portalWriteLimiter, portal.handleImageUpload, portal.addImage);
 router.delete('/me/products/:id/images/:imageId', ...vendorOnly, portalWriteLimiter, portal.deleteImage);
+router.patch('/me/categories', ...vendorOnly, portalWriteLimiter, portal.updateMyCategories);
 router.get('/me/orders', ...vendorOnly, orders.listVendorOrders);
 router.patch('/me/orders/:orderId/status', ...vendorOnly, portalWriteLimiter, orders.updateVendorOrderStatus);
 

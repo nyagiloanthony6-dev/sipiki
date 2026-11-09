@@ -159,7 +159,7 @@ function StatusCard({ icon: Icon, tone, title, children }) {
 }
 
 function Portal({ me, onSignOut, onRefresh }) {
-  if (me.status === "active") return <Dashboard me={me} onSignOut={onSignOut} />;
+  if (me.status === "active") return <Dashboard me={me} onSignOut={onSignOut} onRefresh={onRefresh} />;
 
   const date = me.createdAt ? new Date(me.createdAt).toLocaleDateString("sw-TZ", { day: "2-digit", month: "short", year: "numeric" }) : "";
   return (
@@ -192,7 +192,7 @@ function Portal({ me, onSignOut, onRefresh }) {
 
 // ---- dashboard (approved vendors) ------------------------------------------------
 
-function Dashboard({ me, onSignOut }) {
+function Dashboard({ me, onSignOut, onRefresh }) {
   const [tab, setTab] = useState("overview");
   const [products, setProducts] = useState([]);
   const [summary, setSummary] = useState(null);
@@ -335,7 +335,7 @@ function Dashboard({ me, onSignOut }) {
 
       {!loading && tab === "orders" && <OrdersTab onAuthError={authFailed} onChanged={load} notify={notify} />}
 
-      {!loading && tab === "profile" && <Profile me={me} />}
+      {!loading && tab === "profile" && <Profile me={me} products={products} onAuthError={authFailed} notify={notify} onChanged={() => { load(); onRefresh(); }} />}
 
       {editor && (
         <ProductEditor
@@ -535,12 +535,102 @@ function Overview({ me, summary, products, onAdd }) {
   );
 }
 
-function Profile({ me }) {
+function CategoriesCard({ me, products, onAuthError, notify, onChanged }) {
+  const [editing, setEditing] = useState(false);
+  const [open, setOpen] = useState(null); // names the admin currently accepts for new businesses
+  const [chosen, setChosen] = useState(new Set());
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const current = me.categories || [];
+
+  async function start() {
+    setError("");
+    setChosen(new Set(current.map((c) => c.toLowerCase())));
+    setEditing(true);
+    try {
+      const r = await request("/vendors/categories", { token: null });
+      setOpen(r.data);
+    } catch { setOpen([]); }
+  }
+
+  // every open category, plus the ones the seller already has that the admin has since closed (those can only be removed)
+  const lower = (arr) => arr.map((c) => c.toLowerCase());
+  const options = open === null ? [] : [
+    ...open.map((name) => ({ name, closed: false })),
+    ...current.filter((c) => !lower(open).includes(c.toLowerCase())).map((name) => ({ name, closed: true })),
+  ];
+  const removedNow = current.filter((c) => !chosen.has(c.toLowerCase()));
+  const affected = products.filter((p) => p.category && removedNow.some((c) => c.toLowerCase() === p.category.name.toLowerCase())).length;
+
+  function toggle(o) {
+    setError("");
+    const key = o.name.toLowerCase();
+    setChosen((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else if (!o.closed) next.add(key);
+      return next;
+    });
+  }
+
+  async function save() {
+    if (chosen.size === 0) { setError("Chagua angalau kundi moja."); return; }
+    setSaving(true);
+    try {
+      const names = options.filter((o) => chosen.has(o.name.toLowerCase())).map((o) => o.name);
+      await vrequest("/vendors/me/categories", { method: "PATCH", body: { categories: names } });
+      notify("Makundi yamebadilishwa");
+      setEditing(false);
+      onChanged();
+    } catch (err) {
+      if (!onAuthError(err)) setError(err.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <section className="mt-5 rounded-2xl border border-stone-200 bg-white p-5 shadow-sm" data-testid="categories-card">
+      <div className="flex items-center justify-between">
+        <h2 className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Makundi ya Biashara</h2>
+        {!editing && <button onClick={start} className="text-sm font-bold text-sky-700 hover:underline">Badilisha</button>}
+      </div>
+      {!editing ? (
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {current.map((c) => <span key={c} className="rounded-full bg-orange-50 px-3 py-1 text-xs font-semibold text-orange-700">{c}</span>)}
+        </div>
+      ) : (
+        <div className="mt-3">
+          <p className="text-xs text-slate-500">Weka alama kwenye makundi ya bidhaa unazouza. Unaweza kuongeza makundi yaliyo wazi tu. Bidhaa ulizokwisha weka zinabaki.</p>
+          {open === null && <p className="mt-3 flex items-center gap-2 text-sm text-slate-400"><Loader2 size={15} className="animate-spin" /> Inapakia...</p>}
+          <ul className="mt-3 space-y-2">
+            {options.map((o) => (
+              <li key={o.name}>
+                <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-stone-200 px-3 py-2.5 text-sm hover:border-orange-300">
+                  <input type="checkbox" className="h-4 w-4 accent-orange-600" checked={chosen.has(o.name.toLowerCase())} disabled={o.closed && !chosen.has(o.name.toLowerCase())} onChange={() => toggle(o)} />
+                  <span className="flex-1 font-semibold text-slate-800">{o.name}</span>
+                  {o.closed && <span className="text-[11px] font-semibold text-slate-400">halipokei wapya</span>}
+                </label>
+              </li>
+            ))}
+          </ul>
+          {affected > 0 && <p className="mt-3 rounded-xl bg-amber-50 p-3 text-xs text-amber-800">Bidhaa {affected} ziko kwenye makundi unayoondoa. Zitaendelea kuonekana dukani, lakini hutaweza kuongeza bidhaa mpya kwenye makundi hayo.</p>}
+          {error && <p role="alert" className="mt-3 text-xs font-medium text-red-600">{error}</p>}
+          <div className="mt-4 flex justify-end gap-2">
+            <button onClick={() => setEditing(false)} className="rounded-xl px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-stone-100">Ghairi</button>
+            <button onClick={save} disabled={saving || open === null} className="rounded-xl bg-orange-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-orange-700 disabled:opacity-60">Hifadhi</button>
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function Profile({ me, products, onAuthError, notify, onChanged }) {
   const rows = [
     { icon: Store, label: "Biashara", value: `${me.storeName}${me.businessType ? ` · ${me.businessType}` : ""}` },
     { icon: FileText, label: "Namba ya Ombi", value: me.applicationRef || "—" },
     { icon: MapPin, label: "Eneo", value: [me.location, me.region].filter(Boolean).join(", ") || "—" },
-    { icon: Package, label: "Makundi", value: (me.categories || []).join(", ") || "—" },
     { icon: Phone, label: "Simu", value: me.ownerPhone || "—" },
     { icon: Mail, label: "Barua pepe", value: me.user?.email || "—" },
     { icon: FileText, label: "TIN", value: me.tin || "—" },
@@ -549,7 +639,7 @@ function Profile({ me }) {
   return (
     <div className="max-w-2xl">
       <h1 className="text-2xl font-extrabold text-slate-900">Wasifu wa Biashara</h1>
-      <p className="mb-5 text-sm text-slate-500">Kubadilisha taarifa hizi, wasiliana na Sipiki.</p>
+      <p className="mb-5 text-sm text-slate-500">Kubadilisha taarifa zingine (simu, TIN, akaunti ya malipo), wasiliana na Sipiki.</p>
       <dl className="divide-y divide-stone-100 rounded-2xl border border-stone-200 bg-white shadow-sm">
         {rows.map(({ icon: Icon, label, value }) => (
           <div key={label} className="flex items-start gap-3 px-5 py-3.5">
@@ -561,6 +651,7 @@ function Profile({ me }) {
           </div>
         ))}
       </dl>
+      <CategoriesCard me={me} products={products} onAuthError={onAuthError} notify={notify} onChanged={onChanged} />
     </div>
   );
 }
