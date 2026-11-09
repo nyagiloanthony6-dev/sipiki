@@ -4,6 +4,7 @@ import { X, Minus, Plus, ShoppingCart, Loader2, CheckCircle2, Phone, MapPin, Tru
 import { API_URL, request } from "../lib/adminApi";
 import { imageSrc } from "../lib/vendorApi";
 import { REGIONS } from "../lib/regions";
+import { lineKey } from "../lib/cart";
 
 // ============================================================================
 // SIPIKI — cart drawer, guest checkout and order tracking.
@@ -96,7 +97,7 @@ export function CartDrawer({ open, onClose, cart, onTrack }) {
       const { order } = await request("/orders", {
         method: "POST", token: null,
         body: {
-          items: cart.lines.map((l) => ({ productId: l.productId, quantity: l.quantity })),
+          items: cart.lines.map((l) => ({ productId: l.productId, ...(l.variantId ? { variantId: l.variantId } : {}), quantity: l.quantity })),
           phone: form.phone, name: form.name.trim(), region: form.region, location: form.location.trim(), notes: form.notes.trim(),
         },
       });
@@ -141,17 +142,18 @@ export function CartDrawer({ open, onClose, cart, onTrack }) {
               ) : (
                 <div className="space-y-3">
                   {cart.lines.map((line) => (
-                    <div key={line.productId} className="flex items-center gap-3 rounded-lg border border-stone-200 p-2.5">
+                    <div key={lineKey(line)} className="flex items-center gap-3 rounded-lg border border-stone-200 p-2.5">
                       <Thumb line={line} />
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-medium text-slate-900">{line.title}</p>
+                        {line.variantLabel && <p className="truncate text-xs font-semibold text-slate-600" data-testid="cart-option">{line.variantLabel}</p>}
                         <p className="text-xs text-orange-600">{fmt(line.price)}</p>
                         {line.vendor && <p className="truncate text-[11px] text-slate-400">{line.vendor}</p>}
                       </div>
                       <div className="flex items-center gap-1.5">
-                        <button aria-label="Punguza" onClick={() => cart.setQuantity(line.productId, line.quantity - 1)} className="flex h-6 w-6 items-center justify-center rounded-full border border-stone-300 text-slate-600"><Minus size={11} /></button>
+                        <button aria-label="Punguza" onClick={() => cart.setQuantity(lineKey(line), line.quantity - 1)} className="flex h-6 w-6 items-center justify-center rounded-full border border-stone-300 text-slate-600"><Minus size={11} /></button>
                         <span className="w-5 text-center text-sm">{line.quantity}</span>
-                        <button aria-label="Ongeza" onClick={() => cart.setQuantity(line.productId, line.quantity + 1)} className="flex h-6 w-6 items-center justify-center rounded-full border border-stone-300 text-slate-600"><Plus size={11} /></button>
+                        <button aria-label="Ongeza" onClick={() => cart.setQuantity(lineKey(line), line.quantity + 1)} className="flex h-6 w-6 items-center justify-center rounded-full border border-stone-300 text-slate-600"><Plus size={11} /></button>
                       </div>
                     </div>
                   ))}
@@ -231,7 +233,7 @@ export function CartDrawer({ open, onClose, cart, onTrack }) {
               <p className="mt-1 text-xs text-slate-500">Ihifadhi — utaitumia kufuatilia oda.</p>
               <ul className="mt-4 space-y-1 rounded-xl border border-stone-200 p-3 text-left text-sm">
                 {placed.items.map((i, n) => (
-                  <li key={n} className="flex justify-between gap-2"><span className="truncate">{i.quantity} × {i.title}</span><span className="flex-shrink-0 font-semibold">{fmt(i.unitPriceTsh * i.quantity)}</span></li>
+                  <li key={n} className="flex justify-between gap-2"><span className="truncate">{i.quantity} × {i.title}{i.option ? ` (${i.option})` : ""}</span><span className="flex-shrink-0 font-semibold">{fmt(i.unitPriceTsh * i.quantity)}</span></li>
                 ))}
                 <li className="flex justify-between border-t border-stone-100 pt-1 font-bold"><span>Jumla</span><span>{fmt(placed.totalTsh)}</span></li>
               </ul>
@@ -310,7 +312,7 @@ export function TrackModal({ open, onClose, initial }) {
             <ul className="mt-3 space-y-2">
               {order.items.map((i, n) => (
                 <li key={n} className="flex items-start justify-between gap-2 text-sm">
-                  <span className="min-w-0"><span className="block truncate">{i.quantity} × {i.title}</span><span className="block text-[11px] text-slate-400">{i.store}</span></span>
+                  <span className="min-w-0"><span className="block truncate">{i.quantity} × {i.title}{i.option ? ` (${i.option})` : ""}</span><span className="block text-[11px] text-slate-400">{i.store}</span></span>
                   <StatusPill status={i.status} />
                 </li>
               ))}

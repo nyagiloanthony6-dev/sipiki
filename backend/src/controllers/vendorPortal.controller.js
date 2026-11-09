@@ -18,6 +18,7 @@ const crypto = require('crypto');
 const { z } = require('zod');
 const prisma = require('../config/db');
 const { resolveShop } = require('../utils/shop');
+const { specsSchema, variantsSchema, syncVariants } = require('../utils/productDetails');
 const { uploadProductImage, detectImageMime, processProductImage, deleteImageFile } = require('../config/upload');
 
 const MAX_IMAGES = 4;
@@ -31,11 +32,14 @@ const productSchema = z.object({
   title: z.string().trim().min(3, 'Jina la bidhaa liwe na herufi angalau 3').max(120, 'Jina ni refu mno'),
   description: z.string().trim().max(2000, 'Maelezo ni marefu mno').optional().default(''),
   priceTsh: z.number({ invalid_type_error: 'Weka bei kwa namba' }).int('Bei iwe namba kamili').min(100, 'Bei ya chini ni TSh 100').max(MAX_PRICE_TSH, 'Bei ni kubwa mno'),
-  stockQuantity: z.number({ invalid_type_error: 'Weka idadi kwa namba' }).int().min(0, 'Idadi haiwezi kuwa hasi').max(100000, 'Idadi ni kubwa mno'),
+  // Not needed when sizes/colours are listed — then the stock is the total of those
+  stockQuantity: z.number({ invalid_type_error: 'Weka idadi kwa namba' }).int().min(0, 'Idadi haiwezi kuwa hasi').max(100000, 'Idadi ni kubwa mno').optional(),
   categoryId: z.string().uuid('Chagua kundi la bidhaa'),
   isActive: z.boolean().optional().default(true),
+  specs: specsSchema.optional().default([]),
+  variants: variantsSchema.optional().default([]),
 });
-const productUpdateSchema = productSchema.partial();
+const productUpdateSchema = productSchema.omit({ specs: true, variants: true }).partial().extend({ specs: specsSchema.optional(), variants: variantsSchema.optional() });
 
 function slugify(text) {
   return String(text)
@@ -49,7 +53,8 @@ function slugify(text) {
 
 const PRODUCT_SELECT = {
   id: true, title: true, slug: true, description: true, priceCents: true, currency: true,
-  stockQuantity: true, isActive: true, createdAt: true,
+  stockQuantity: true, isActive: true, createdAt: true, specs: true,
+  variants: { orderBy: { position: 'asc' }, select: { id: true, size: true, color: true, stockQuantity: true } },
   category: { select: { id: true, name: true } },
   images: { orderBy: { position: 'asc' }, select: { id: true, url: true } },
 };
@@ -188,22 +193,34 @@ async function createProduct(req, res) {
       return res.status(400).json({ error: 'Kundi hili haliruhusiwi kwa biashara yako', details: { categoryId: ['Chagua kundi ulilosajiliwa nalo'] } });
     }
 
+    if (d.variants.length === 0 && d.stockQuantity === undefined) {
+      return res.status(400).json({ error: 'Taarifa za bidhaa si sahihi', details: { stockQuantity: ['Weka idadi iliyopo'] } });
+    }
+
     // A readable address for the product page; a short random tail keeps it unique
     for (let attempt = 0; attempt < 3; attempt += 1) {
       try {
-        const product = await prisma.product.create({
-          data: {
-            vendorId: vendor.id,
-            categoryId: d.categoryId,
-            title: d.title,
-            slug: `${slugify(d.title) || 'bidhaa'}-${crypto.randomBytes(3).toString('hex')}`,
-            description: d.description || null,
-            priceCents: d.priceTsh * 100,
-            currency: 'TZS',
-            stockQuantity: d.stockQuantity,
-            isActive: d.isActive,
-          },
-          select: PRODUCT_SELECT,
+        const product = await prisma.$transaction(async (tx) => {
+          const created = await tx.product.create({
+            data: {
+              vendorId: vendor.id,
+              categoryId: d.categoryId,
+              title: d.title,
+              slug: `${slugify(d.title) || 'bidhaa'}-${crypto.randomBytes(3).toString('hex')}`,
+              description: d.description || null,
+              priceCents: d.priceTsh * 100,
+              currency: 'TZS',
+              stockQuantity: d.stockQuantity ?? 0,
+              isActive: d.isActive,
+              specs: d.specs,
+            },
+            select: { id: true },
+          });
+          if (d.variants.length) {
+            const total = await syncVariants(tx, created.id, d.variants);
+            await tx.product.update({ where: { id: created.id }, data: { stockQuantity: total } });
+          }
+          return tx.product.findUnique({ where: { id: created.id }, select: PRODUCT_SELECT });
         });
         return res.status(201).json({ product: withMoney(product) });
       } catch (err) {
@@ -240,12 +257,22 @@ async function updateProduct(req, res) {
     if (d.stockQuantity !== undefined) data.stockQuantity = d.stockQuantity;
     if (d.categoryId !== undefined) data.categoryId = d.categoryId;
     if (d.isActive !== undefined) data.isActive = d.isActive;
+    if (d.specs !== undefined) data.specs = d.specs;
 
-    // The vendor id in the WHERE clause is what stops anyone editing someone else's product
-    const result = await prisma.product.updateMany({ where: { id: req.params.id, vendorId: vendor.id, deletedAt: null }, data });
-    if (result.count === 0) return res.status(404).json({ error: 'Bidhaa haijapatikana' });
-
-    const product = await prisma.product.findUnique({ where: { id: req.params.id }, select: PRODUCT_SELECT });
+    const product = await prisma.$transaction(async (tx) => {
+      // A product with sizes/colours has its stock set by those, so a stray single number must not override it
+      if (d.variants === undefined && data.stockQuantity !== undefined && (await tx.productVariant.count({ where: { productId: req.params.id } })) > 0) delete data.stockQuantity;
+      // The vendor id in the WHERE clause is what stops anyone editing someone else's product
+      const result = await tx.product.updateMany({ where: { id: req.params.id, vendorId: vendor.id, deletedAt: null }, data });
+      if (result.count === 0) return null;
+      if (d.variants !== undefined) {
+        const total = await syncVariants(tx, req.params.id, d.variants);
+        // With sizes/colours the stock is their total; with none, the single stock number applies again
+        if (d.variants.length) await tx.product.update({ where: { id: req.params.id }, data: { stockQuantity: total } });
+      }
+      return tx.product.findUnique({ where: { id: req.params.id }, select: PRODUCT_SELECT });
+    });
+    if (!product) return res.status(404).json({ error: 'Bidhaa haijapatikana' });
     res.json({ product: withMoney(product) });
   } catch (err) {
     console.error('updateProduct error:', err);

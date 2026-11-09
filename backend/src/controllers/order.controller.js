@@ -18,6 +18,7 @@ const { normalizePhone } = require('../utils/phone');
 const { REGIONS } = require('../validators/vendor.validators');
 const { sendSms } = require('../services/sms.service');
 const { resolveShop } = require('../utils/shop');
+const { variantLabel } = require('../utils/productDetails');
 
 const MAX_INT = 2_147_483_647; // INTEGER column limit (cents)
 const REF_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no 0/O/1/I — easy to read out over the phone
@@ -30,7 +31,7 @@ const phoneField = z.string().transform((v, ctx) => {
 
 const orderSchema = z.object({
   items: z
-    .array(z.object({ productId: z.string().uuid(), quantity: z.number().int().min(1).max(50) }))
+    .array(z.object({ productId: z.string().uuid(), variantId: z.string().uuid().optional(), quantity: z.number().int().min(1).max(50) }))
     .min(1, 'Kikapu kiko tupu')
     .max(20, 'Bidhaa ni nyingi mno kwa oda moja'),
   phone: phoneField,
@@ -75,9 +76,14 @@ async function createOrder(req, res) {
   }
   const d = parsed.data;
 
-  // Same product twice → one line
+  // Same product (and same size/colour) twice → one line
   const wanted = new Map();
-  for (const it of d.items) wanted.set(it.productId, (wanted.get(it.productId) || 0) + it.quantity);
+  for (const it of d.items) {
+    const key = `${it.productId}:${it.variantId || ''}`;
+    const cur = wanted.get(key) || { productId: it.productId, variantId: it.variantId || null, quantity: 0 };
+    cur.quantity += it.quantity;
+    wanted.set(key, cur);
+  }
 
   try {
     let order;
@@ -86,28 +92,42 @@ async function createOrder(req, res) {
       try {
         ({ order, vendorsById } = await prisma.$transaction(async (tx) => {
           const products = await tx.product.findMany({
-            where: { id: { in: [...wanted.keys()] }, isActive: true, deletedAt: null, vendor: { status: 'active' } },
-            select: { id: true, title: true, priceCents: true, vendorId: true, vendor: { select: { id: true, storeName: true, ownerPhone: true } } },
+            where: { id: { in: [...new Set([...wanted.values()].map((w) => w.productId))] }, isActive: true, deletedAt: null, vendor: { status: 'active' } },
+            select: { id: true, title: true, priceCents: true, vendorId: true, variants: { select: { id: true, size: true, color: true } }, vendor: { select: { id: true, storeName: true, ownerPhone: true } } },
           });
           const byId = new Map(products.map((p) => [p.id, p]));
-          const missing = [...wanted.keys()].filter((id) => !byId.has(id));
+          const missing = [...wanted.values()].filter((w) => !byId.has(w.productId)).map((w) => w.productId);
           if (missing.length) throw new OrderError(409, 'Bidhaa moja au zaidi haipatikani tena dukani.', { unavailable: missing });
 
           let total = 0;
           const lines = [];
-          for (const [productId, quantity] of wanted) {
+          for (const { productId, variantId, quantity } of wanted.values()) {
             const p = byId.get(productId);
+            let variant = null;
+            if (p.variants.length > 0) {
+              if (!variantId) throw new OrderError(400, `Chagua saizi au rangi ya "${p.title}" kwanza.`, { unavailable: [productId] });
+              variant = p.variants.find((v) => v.id === variantId);
+              if (!variant) throw new OrderError(409, `Chaguo ulilochagua la "${p.title}" halipatikani tena.`, { unavailable: [productId] });
+            } else if (variantId) {
+              throw new OrderError(409, `Chaguo ulilochagua la "${p.title}" halipatikani tena.`, { unavailable: [productId] });
+            }
             const subtotal = p.priceCents * quantity;
             if (subtotal > MAX_INT) throw new OrderError(400, 'Jumla ni kubwa mno kwa oda moja.');
             total += subtotal;
-            lines.push({ p, quantity, subtotal });
+            lines.push({ p, variant, label: variant ? variantLabel(variant) : null, quantity, subtotal });
           }
           if (total > MAX_INT) throw new OrderError(400, 'Jumla ni kubwa mno kwa oda moja. Gawanya oda mbili.');
 
           // Take the stock; the condition makes this safe against two buyers at once
-          for (const { p, quantity } of lines) {
+          for (const { p, variant, label, quantity } of lines) {
+            const what = label ? `"${p.title}" (${label})` : `"${p.title}"`;
+            if (variant) {
+              const takenVariant = await tx.productVariant.updateMany({ where: { id: variant.id, stockQuantity: { gte: quantity } }, data: { stockQuantity: { decrement: quantity } } });
+              if (takenVariant.count === 0) throw new OrderError(409, `${what} haitoshi tena kwa idadi uliyochagua.`, { unavailable: [p.id] });
+            }
+            // The product's own number is the total of all its sizes/colours, so it goes down too
             const taken = await tx.product.updateMany({ where: { id: p.id, stockQuantity: { gte: quantity } }, data: { stockQuantity: { decrement: quantity } } });
-            if (taken.count === 0) throw new OrderError(409, `"${p.title}" haitoshi tena kwa idadi uliyochagua.`, { unavailable: [p.id] });
+            if (taken.count === 0) throw new OrderError(409, `${what} haitoshi tena kwa idadi uliyochagua.`, { unavailable: [p.id] });
           }
 
           const created = await tx.order.create({
@@ -123,12 +143,12 @@ async function createOrder(req, res) {
               currency: 'TZS',
               shippingAddress: { region: d.region, location: d.location, notes: d.notes || null },
               items: {
-                create: lines.map(({ p, quantity, subtotal }) => ({
-                  productId: p.id, vendorId: p.vendorId, productTitle: p.title, quantity, unitPriceCents: p.priceCents, subtotalCents: subtotal,
+                create: lines.map(({ p, variant, label, quantity, subtotal }) => ({
+                  productId: p.id, vendorId: p.vendorId, productTitle: p.title, variantId: variant?.id ?? null, variantLabel: label, quantity, unitPriceCents: p.priceCents, subtotalCents: subtotal,
                 })),
               },
             },
-            select: { id: true, orderRef: true, totalCents: true, items: { select: { productTitle: true, quantity: true, unitPriceCents: true, vendorId: true, subtotalCents: true } } },
+            select: { id: true, orderRef: true, totalCents: true, items: { select: { productTitle: true, variantLabel: true, quantity: true, unitPriceCents: true, vendorId: true, subtotalCents: true } } },
           });
           return { order: created, vendorsById: new Map(products.map((p) => [p.vendor.id, p.vendor])) };
         }));
@@ -146,7 +166,7 @@ async function createOrder(req, res) {
       order: {
         ref: order.orderRef,
         totalTsh: tsh(order.totalCents),
-        items: order.items.map((i) => ({ title: i.productTitle, quantity: i.quantity, unitPriceTsh: tsh(i.unitPriceCents) })),
+        items: order.items.map((i) => ({ title: i.productTitle, option: i.variantLabel, quantity: i.quantity, unitPriceTsh: tsh(i.unitPriceCents) })),
         paymentMethod: 'on_delivery',
       },
     });
@@ -187,7 +207,7 @@ async function trackOrder(req, res) {
       where: { orderRef: parsed.data.ref, customerPhone: parsed.data.phone },
       select: {
         orderRef: true, status: true, totalCents: true, createdAt: true, shippingAddress: true,
-        items: { select: { productTitle: true, quantity: true, unitPriceCents: true, fulfillmentStatus: true, vendor: { select: { storeName: true } } } },
+        items: { select: { productTitle: true, variantLabel: true, quantity: true, unitPriceCents: true, fulfillmentStatus: true, vendor: { select: { storeName: true } } } },
       },
     });
     if (!order) return res.status(404).json({ error: 'Oda haijapatikana. Angalia namba ya oda na namba ya simu uliyotumia.' });
@@ -195,7 +215,7 @@ async function trackOrder(req, res) {
       order: {
         ref: order.orderRef, status: order.status, createdAt: order.createdAt, totalTsh: tsh(order.totalCents),
         location: `${order.shippingAddress?.location || ''}, ${order.shippingAddress?.region || ''}`,
-        items: order.items.map((i) => ({ title: i.productTitle, quantity: i.quantity, unitPriceTsh: tsh(i.unitPriceCents), status: i.fulfillmentStatus, store: i.vendor?.storeName })),
+        items: order.items.map((i) => ({ title: i.productTitle, option: i.variantLabel, quantity: i.quantity, unitPriceTsh: tsh(i.unitPriceCents), status: i.fulfillmentStatus, store: i.vendor?.storeName })),
       },
     });
   } catch (err) {
@@ -227,7 +247,7 @@ async function listVendorOrders(req, res) {
       take: 100,
       select: {
         id: true, orderRef: true, createdAt: true, customerName: true, customerPhone: true, shippingAddress: true, paymentMethod: true,
-        items: { where: { vendorId: vendor.id }, select: { productTitle: true, quantity: true, unitPriceCents: true, subtotalCents: true, fulfillmentStatus: true } },
+        items: { where: { vendorId: vendor.id }, select: { productTitle: true, variantLabel: true, quantity: true, unitPriceCents: true, subtotalCents: true, fulfillmentStatus: true } },
       },
     });
     res.json({
@@ -240,7 +260,7 @@ async function listVendorOrders(req, res) {
         paymentMethod: o.paymentMethod,
         status: o.items[0]?.fulfillmentStatus || 'pending',
         subtotalTsh: tsh(o.items.reduce((s, i) => s + i.subtotalCents, 0)),
-        items: o.items.map((i) => ({ title: i.productTitle, quantity: i.quantity, unitPriceTsh: tsh(i.unitPriceCents), subtotalTsh: tsh(i.subtotalCents) })),
+        items: o.items.map((i) => ({ title: i.productTitle, option: i.variantLabel, quantity: i.quantity, unitPriceTsh: tsh(i.unitPriceCents), subtotalTsh: tsh(i.subtotalCents) })),
       })),
     });
   } catch (err) {
@@ -271,7 +291,7 @@ async function updateVendorOrderStatus(req, res) {
     const result = await prisma.$transaction(async (tx) => {
       const items = await tx.orderItem.findMany({
         where: { orderId, vendorId: vendor.id },
-        select: { id: true, productId: true, quantity: true, fulfillmentStatus: true },
+        select: { id: true, productId: true, variantId: true, quantity: true, fulfillmentStatus: true },
       });
       if (items.length === 0) throw new OrderError(404, 'Oda haijapatikana');
       const from = items[0].fulfillmentStatus;
@@ -282,7 +302,14 @@ async function updateVendorOrderStatus(req, res) {
       if (changed.count === 0) throw new OrderError(409, 'Hali ya oda imebadilika tayari.');
 
       if (to === 'cancelled') {
-        for (const it of items) await tx.product.update({ where: { id: it.productId }, data: { stockQuantity: { increment: it.quantity } } });
+        for (const it of items) {
+          if (it.variantId) {
+            await tx.productVariant.update({ where: { id: it.variantId }, data: { stockQuantity: { increment: it.quantity } } });
+            await tx.product.update({ where: { id: it.productId }, data: { stockQuantity: { increment: it.quantity } } });
+          } else if ((await tx.productVariant.count({ where: { productId: it.productId } })) === 0) {
+            await tx.product.update({ where: { id: it.productId }, data: { stockQuantity: { increment: it.quantity } } });
+          } // else: the seller removed that size after the order, so there is no stock line to put it back on
+        }
       }
       const all = await tx.orderItem.findMany({ where: { orderId }, select: { fulfillmentStatus: true } });
       const status = overallStatus(all.map((i) => i.fulfillmentStatus));

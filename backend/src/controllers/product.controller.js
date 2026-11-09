@@ -58,7 +58,7 @@ async function listProducts(req, res) {
           category: { select: { name: true, slug: true } },
           vendor: { select: { storeName: true, storeSlug: true } },
           tags: { include: { tag: { select: { name: true } } } },
-          _count: { select: { reviews: true } },
+          _count: { select: { reviews: true, variants: true } },
         },
       }),
       prisma.product.count({ where }),
@@ -78,6 +78,7 @@ async function listProducts(req, res) {
       reviewCount: p._count.reviews,
       description: p.description,
       inStock: p.stockQuantity > 0,
+      hasOptions: p._count.variants > 0, // sizes/colours → the customer must choose on the product page
     }));
 
     res.json({
@@ -107,6 +108,7 @@ async function getProductBySlug(req, res) {
       where: { slug, isActive: true, deletedAt: null, vendor: { status: 'active' } },
       include: {
         images: { orderBy: { position: 'asc' } },
+        variants: { orderBy: { position: 'asc' }, select: { id: true, size: true, color: true, stockQuantity: true } },
         category: true,
         vendor: { select: { storeName: true, storeSlug: true, id: true } },
         tags: { include: { tag: true } },

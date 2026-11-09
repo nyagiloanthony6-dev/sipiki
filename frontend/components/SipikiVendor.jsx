@@ -1,6 +1,7 @@
 "use client";
+import { profileFor, COLOR_SUGGESTIONS } from "../lib/productDetails";
 import Link from "next/link";
-import { useState, useEffect, useCallback, createContext, useContext } from "react";
+import { useState, useEffect, useCallback, createContext, useContext, useRef } from "react";
 import {
   LayoutDashboard, Package, ClipboardList, Store, LogOut, Lock, Loader2, Plus, X, Pencil, Trash2,
   Eye, EyeOff, ImagePlus, ChevronDown, Upload, Clock, Ban, XCircle, CheckCircle2, Circle, TrendingUp, Wallet, MapPin, Phone, Mail, FileText,
@@ -702,7 +703,7 @@ function OrdersTab({ onAuthError, onChanged, notify }) {
 
               <ul className="mt-3 divide-y divide-stone-100 text-sm">
                 {o.items.map((i, n) => (
-                  <li key={n} className="flex justify-between gap-3 py-1.5"><span className="min-w-0 truncate">{i.quantity} × {i.title}</span><span className="flex-shrink-0 font-semibold">{fmt(i.subtotalTsh)}</span></li>
+                  <li key={n} className="flex justify-between gap-3 py-1.5"><span className="min-w-0 truncate">{i.quantity} × {i.title}{i.option && <b className="ml-1 rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-800" data-testid="order-option">{i.option}</b>}</span><span className="flex-shrink-0 font-semibold">{fmt(i.subtotalTsh)}</span></li>
                 ))}
                 <li className="flex justify-between pt-2 font-extrabold text-slate-900"><span>Jumla ya kukusanya</span><span>{fmt(o.subtotalTsh)}</span></li>
               </ul>
@@ -913,6 +914,13 @@ function ProductEditor({ product, categories, onClose, onSaved, onAuthError }) {
     categoryId: product?.category?.id || (categories.length === 1 ? categories[0].id : ""),
     isActive: product ? product.isActive : true,
   });
+  // Sizes / colours, each with its own stock. When on, the single stock number is replaced by their total.
+  const rowId = useRef(0);
+  const newRow = (r = {}) => ({ key: (rowId.current += 1), size: "", color: "", stock: "0", ...r });
+  const [variantsOn, setVariantsOn] = useState((product?.variants || []).length > 0);
+  const [variants, setVariants] = useState(() => (product?.variants || []).map((v) => newRow({ size: v.size, color: v.color, stock: String(v.stockQuantity) })));
+  const [specs, setSpecs] = useState(() => (Array.isArray(product?.specs) ? product.specs : []).map((x) => newRow({ label: x.label, value: x.value })));
+  const [rowErrors, setRowErrors] = useState({});
   const [existing, setExisting] = useState(product?.images || []); // photos already saved
   const [removed, setRemoved] = useState([]);                      // saved photos to delete on save
   const [added, setAdded] = useState([]);                          // { file, preview, warnings } picked now
@@ -939,6 +947,32 @@ function ProductEditor({ product, categories, onClose, onSaved, onAuthError }) {
     if (files.length > room) setFormError(`Unaweza kuweka picha ${MAX_PHOTOS} tu kwa kila bidhaa.`);
   }
 
+  const profile = profileFor(categories.find((c) => c.id === form.categoryId)?.name);
+  const variantTotal = variants.reduce((n, v) => n + (Number(v.stock) || 0), 0);
+  const patchRow = (setter, key, patch) => { setter((rows) => rows.map((r) => (r.key === key ? { ...r, ...patch } : r))); setRowErrors((x) => ({ ...x, [key]: undefined })); };
+  const addVariant = (r) => setVariants((rows) => (rows.length >= 40 ? rows : [...rows, newRow(r)]));
+  const addSpec = (label = "") => setSpecs((rows) => (rows.length >= 20 ? rows : [...rows, newRow({ label, value: "" })]));
+
+  function validateRows() {
+    const re = {};
+    if (variantsOn) {
+      const seen = new Set();
+      variants.forEach((v) => {
+        const size = v.size.trim(); const color = v.color.trim();
+        if (!size && !color) re[v.key] = "Andika saizi au rangi";
+        else if (v.stock === "" || !Number.isInteger(Number(v.stock)) || Number(v.stock) < 0) re[v.key] = "Weka idadi kamili (0 au zaidi)";
+        else if (seen.has(`${size.toLowerCase()}|${color.toLowerCase()}`)) re[v.key] = "Saizi na rangi hii imeandikwa mara mbili";
+        seen.add(`${size.toLowerCase()}|${color.toLowerCase()}`);
+      });
+    }
+    specs.forEach((x) => {
+      const l = (x.label || "").trim(); const v = (x.value || "").trim();
+      if (l && !v) re[x.key] = `Andika thamani ya "${l}" au uondoe mstari`;
+      else if (!l && v) re[x.key] = "Andika jina la maelezo (mf. Chapa)";
+    });
+    return re;
+  }
+
   function validate() {
     const e = {};
     if (form.title.trim().length < 3) e.title = "Jina liwe na herufi angalau 3";
@@ -946,7 +980,8 @@ function ProductEditor({ product, categories, onClose, onSaved, onAuthError }) {
     if (!Number.isInteger(price) || price < 100) e.priceTsh = "Weka bei kamili, angalau TSh 100";
     else if (price > 20_000_000) e.priceTsh = "Bei ni kubwa mno";
     const stock = Number(form.stockQuantity);
-    if (form.stockQuantity === "" || !Number.isInteger(stock) || stock < 0) e.stockQuantity = "Weka idadi kamili (0 au zaidi)";
+    if (!variantsOn && (form.stockQuantity === "" || !Number.isInteger(stock) || stock < 0)) e.stockQuantity = "Weka idadi kamili (0 au zaidi)";
+    if (variantsOn && variants.length === 0) e.variants = "Ongeza angalau saizi au rangi moja, au zima chaguo hili";
     if (!form.categoryId) e.categoryId = "Chagua kundi la bidhaa";
     return e;
   }
@@ -954,13 +989,18 @@ function ProductEditor({ product, categories, onClose, onSaved, onAuthError }) {
   async function save() {
     if (saving) return;
     const e = validate();
+    const re = validateRows();
     setErrors(e);
+    setRowErrors(re);
     setFormError("");
-    if (Object.keys(e).length) return;
+    if (Object.keys(e).length || Object.keys(re).length) return;
     setSaving(true);
     const body = {
       title: form.title.trim(), description: form.description.trim(), priceTsh: Number(form.priceTsh),
-      stockQuantity: Number(form.stockQuantity), categoryId: form.categoryId, isActive: form.isActive,
+      categoryId: form.categoryId, isActive: form.isActive,
+      ...(variantsOn ? {} : { stockQuantity: Number(form.stockQuantity) }),
+      variants: variantsOn ? variants.map((v) => ({ size: v.size.trim(), color: v.color.trim(), stockQuantity: Number(v.stock) })) : [],
+      specs: specs.filter((x) => (x.label || "").trim() && (x.value || "").trim()).map((x) => ({ label: x.label.trim(), value: x.value.trim() })),
     };
     let saved;
     try {
@@ -971,8 +1011,8 @@ function ProductEditor({ product, categories, onClose, onSaved, onAuthError }) {
       setSaving(false);
       if (onAuthError(err)) return;
       const d = err.data?.details || {};
-      setErrors({ title: d.title?.[0], priceTsh: d.priceTsh?.[0], stockQuantity: d.stockQuantity?.[0], categoryId: d.categoryId?.[0] });
-      setFormError(err.message);
+      setErrors({ title: d.title?.[0], priceTsh: d.priceTsh?.[0], stockQuantity: d.stockQuantity?.[0], categoryId: d.categoryId?.[0], variants: d.variants?.[0] });
+      setFormError(d.specs?.[0] ? `Maelezo ya bidhaa: ${d.specs[0]}` : err.message);
       return;
     }
 
@@ -1025,13 +1065,91 @@ function ProductEditor({ product, categories, onClose, onSaved, onAuthError }) {
           </div>
           <div>
             <label className="block text-sm font-semibold text-slate-800" htmlFor="p-stock">Idadi iliyopo</label>
-            <input id="p-stock" inputMode="numeric" className={input(errors.stockQuantity)} value={form.stockQuantity} onChange={(e) => set("stockQuantity", e.target.value.replace(/\D/g, "").slice(0, 6))} />
+            {variantsOn ? (
+              <p id="p-stock" data-testid="stock-total" className="mt-1 rounded-xl border border-stone-200 bg-stone-50 px-3 py-2.5 text-sm font-bold text-slate-700">{variantTotal} <span className="font-normal text-slate-400">(jumla ya saizi)</span></p>
+            ) : (
+              <input id="p-stock" inputMode="numeric" className={input(errors.stockQuantity)} value={form.stockQuantity} onChange={(e) => set("stockQuantity", e.target.value.replace(/\D/g, "").slice(0, 6))} />
+            )}
             <Err k="stockQuantity" />
           </div>
         </div>
 
         <label className="mt-3 block text-sm font-semibold text-slate-800" htmlFor="p-desc">Maelezo (hiari)</label>
-        <textarea id="p-desc" rows={3} maxLength={2000} className={input(false)} value={form.description} onChange={(e) => set("description", e.target.value)} placeholder="Ukubwa, rangi, hali ya bidhaa..." />
+        <textarea id="p-desc" rows={3} maxLength={2000} className={input(false)} value={form.description} onChange={(e) => set("description", e.target.value)} placeholder="Maelezo ya ziada kuhusu bidhaa..." />
+
+
+        {/* ---- sizes / colours with their own stock ---- */}
+        <div className="mt-5 rounded-xl border border-stone-200 p-3" data-testid="variants-box">
+          <label className="flex cursor-pointer items-start gap-2.5 text-sm font-semibold text-slate-800">
+            <input type="checkbox" id="p-variants-on" className="mt-0.5 h-4 w-4 accent-orange-600" checked={variantsOn}
+              onChange={(e) => {
+                setVariantsOn(e.target.checked);
+                if (e.target.checked && variants.length === 0) {
+                  // start from the sizes that suit this category, using the stock number already typed for the first one
+                  if (profile.sizes.length) setVariants(profile.sizes.slice(0, 1).map((sz) => newRow({ size: sz, stock: form.stockQuantity || "0" })));
+                  else setVariants([newRow({ stock: form.stockQuantity || "0" })]);
+                }
+              }} />
+            <span>Bidhaa hii ina saizi au rangi tofauti<span className="block text-xs font-normal text-slate-500">Mteja atachagua saizi/rangi kabla ya kuagiza, na kila moja ina idadi yake.</span></span>
+          </label>
+          {variantsOn && (
+            <div className="mt-3">
+              {profile.sizes.length > 0 && (
+                <div className="mb-2">
+                  <p className="text-xs font-semibold text-slate-500">{profile.sizeHint} — gusa kuongeza:</p>
+                  <div className="mt-1 flex flex-wrap gap-1.5">
+                    {profile.sizes.map((sz) => {
+                      const used = variants.some((v) => v.size.trim().toLowerCase() === sz.toLowerCase());
+                      return <button key={sz} type="button" disabled={used} onClick={() => addVariant({ size: sz })} data-testid={`add-size-${sz}`} className="rounded-lg border border-stone-300 px-2.5 py-1 text-xs font-bold text-slate-700 hover:border-orange-400 disabled:cursor-not-allowed disabled:border-stone-200 disabled:text-stone-300">{used ? `✓ ${sz}` : `+ ${sz}`}</button>;
+                    })}
+                  </div>
+                </div>
+              )}
+              <div className="grid grid-cols-[1fr_1fr_4.5rem_1.75rem] items-center gap-1.5 text-[11px] font-semibold text-slate-500"><span>Saizi</span><span>Rangi</span><span>Idadi</span><span /></div>
+              <datalist id="color-list">{COLOR_SUGGESTIONS.map((c) => <option key={c} value={c} />)}</datalist>
+              <div className="mt-1 space-y-1.5">
+                {variants.map((v) => (
+                  <div key={v.key} data-testid="variant-row">
+                    <div className="grid grid-cols-[1fr_1fr_4.5rem_1.75rem] items-center gap-1.5">
+                      <input aria-label="Saizi" maxLength={20} className={input(rowErrors[v.key])} value={v.size} onChange={(e) => patchRow(setVariants, v.key, { size: e.target.value })} placeholder="mf. M au 42" />
+                      <input aria-label="Rangi" maxLength={30} list="color-list" className={input(rowErrors[v.key])} value={v.color} onChange={(e) => patchRow(setVariants, v.key, { color: e.target.value })} placeholder="mf. Nyeusi" />
+                      <input aria-label="Idadi ya saizi hii" inputMode="numeric" className={input(rowErrors[v.key])} value={v.stock} onChange={(e) => patchRow(setVariants, v.key, { stock: e.target.value.replace(/\D/g, "").slice(0, 6) })} />
+                      <button type="button" aria-label="Ondoa mstari" onClick={() => setVariants((rows) => rows.filter((r) => r.key !== v.key))} className="text-slate-400 hover:text-red-600"><X size={16} /></button>
+                    </div>
+                    {rowErrors[v.key] && <p className="mt-0.5 text-xs font-medium text-red-600">{rowErrors[v.key]}</p>}
+                  </div>
+                ))}
+              </div>
+              {errors.variants && <p className="mt-1 text-xs font-medium text-red-600">{errors.variants}</p>}
+              <button type="button" onClick={() => addVariant()} data-testid="add-variant" className="mt-2 text-xs font-bold text-orange-600 hover:text-orange-700">+ Ongeza mstari mwingine</button>
+            </div>
+          )}
+        </div>
+
+        {/* ---- details the customer reads before buying ---- */}
+        <div className="mt-4 rounded-xl border border-stone-200 p-3" data-testid="specs-box">
+          <p className="text-sm font-semibold text-slate-800">Maelezo ya bidhaa <span className="font-normal text-slate-400">(hiari, lakini yanasaidia mteja kuamua)</span></p>
+          {profile.specs.filter((l) => !specs.some((x) => (x.label || "").trim().toLowerCase() === l.toLowerCase())).length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {profile.specs.filter((l) => !specs.some((x) => (x.label || "").trim().toLowerCase() === l.toLowerCase())).map((l) => (
+                <button key={l} type="button" onClick={() => addSpec(l)} className="rounded-lg border border-stone-300 px-2.5 py-1 text-xs font-semibold text-slate-700 hover:border-orange-400">+ {l.split(" (")[0]}</button>
+              ))}
+            </div>
+          )}
+          <div className="mt-2 space-y-1.5">
+            {specs.map((x) => (
+              <div key={x.key} data-testid="spec-row">
+                <div className="grid grid-cols-[2fr_3fr_1.75rem] items-center gap-1.5">
+                  <input aria-label="Jina la maelezo" maxLength={40} className={input(rowErrors[x.key])} value={x.label} onChange={(e) => patchRow(setSpecs, x.key, { label: e.target.value })} placeholder="mf. Chapa" />
+                  <input aria-label="Thamani" maxLength={200} className={input(rowErrors[x.key])} value={x.value} onChange={(e) => patchRow(setSpecs, x.key, { value: e.target.value })} placeholder="mf. Reinzosil" />
+                  <button type="button" aria-label="Ondoa maelezo" onClick={() => setSpecs((rows) => rows.filter((r) => r.key !== x.key))} className="text-slate-400 hover:text-red-600"><X size={16} /></button>
+                </div>
+                {rowErrors[x.key] && <p className="mt-0.5 text-xs font-medium text-red-600">{rowErrors[x.key]}</p>}
+              </div>
+            ))}
+          </div>
+          <button type="button" onClick={() => addSpec()} data-testid="add-spec" className="mt-2 text-xs font-bold text-orange-600 hover:text-orange-700">+ Ongeza maelezo mengine</button>
+        </div>
 
         <div className="mt-4">
           <p className="text-sm font-semibold text-slate-800">Picha <span className="font-normal text-slate-400">({photoCount}/{MAX_PHOTOS})</span></p>

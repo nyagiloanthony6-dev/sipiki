@@ -143,3 +143,14 @@ A seller can run several shops from one login. In the vendor portal, the shop na
 - Products, orders, categories and the overview are separate for each shop. Orders and SMS texts go to the right shop.
 - An owner can have up to 5 shops that are not rejected. The first shop must be approved before adding another.
 - Database change: `006_multiple_shops.sql` runs on its own when the API starts. Look for `[db] applying 006_multiple_shops.sql` in the Railway log.
+
+## Sizes, colours and product details
+
+Before buying, a customer can see the details of a product and must choose the size or colour.
+
+- **Sizes and colours:** in the product form the seller ticks "Bidhaa hii ina saizi au rangi tofauti" and lists each size/colour with its **own stock**. Shoes and clothes get quick size buttons (36–45, S–XXL); other categories can type any size or colour. The product's total stock is the sum of its sizes.
+- **Customer side:** the product page shows size and colour buttons. A sold-out size is greyed out, the stock shown is for the chosen size, and the item cannot go into the cart until a size is chosen. In the shop list, such products show "Chagua" instead of the + button.
+- **Orders:** the cart, the confirmation, order tracking and the seller's Maagizo tab all show the chosen option, for example "Saizi M · Nyeusi". Stock is taken from that size when the order is placed, and put back if the seller cancels.
+- **Details table ("Maelezo ya bidhaa"):** the seller adds label/value rows (Brand, Material, Warranty, Fits model, ...). The form suggests fields to match the category (clothes, shoes, phones, beauty, bags, spare parts); the seller can add their own. Up to 20 rows.
+- If the seller removes a size after it was ordered, that order still shows the size it was placed with.
+- Database change: `007_product_details_variants.sql` runs on its own when the API starts. Look for `[db] applying 007_product_details_variants.sql` in the Railway log.

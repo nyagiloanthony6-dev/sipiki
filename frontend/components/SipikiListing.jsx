@@ -443,7 +443,7 @@ export default function SipikiListing() {
             id: x.id, slug: x.slug, title: x.title, vendor: x.vendor?.storeName || "", category: cat,
             emoji: (CATEGORY_META[cat] || DEFAULT_META).emoji, tile: "bg-stone-100",
             image: imageSrc(x.thumbnail, 400), rating: null, reviews: x.reviewCount, oldPrice: null, badge: null,
-            price: Math.round(x.priceCents / 100), inStock: x.inStock,
+            price: Math.round(x.priceCents / 100), inStock: x.inStock, hasOptions: Boolean(x.hasOptions),
           };
         }));
         setCategoryNames(c.data.map((x) => x.name));
@@ -573,7 +573,8 @@ export default function SipikiListing() {
 
         <div className="grid grid-cols-4 gap-3 sm:gap-5">
           {filtered.map((product) => {
-            const inCart = cart.lines.find((i) => i.productId === product.id);
+            const inCartQty = cart.lines.filter((i) => i.productId === product.id).reduce((n, i) => n + i.quantity, 0);
+            const inCart = inCartQty > 0 ? { quantity: inCartQty } : null;
             const isWished = wishlist.includes(product.id);
 
             return (
@@ -630,6 +631,17 @@ export default function SipikiListing() {
                       </p>
                     </div>
 
+                    {product.hasOptions ? (
+                      // Sizes/colours: the customer picks them on the product page, so the + button becomes a link there
+                      <Link
+                        href={`/product/${product.slug}`}
+                        className={`relative z-20 flex h-9 items-center justify-center rounded-lg bg-orange-600 px-3 text-xs font-bold text-white transition hover:bg-orange-700 ${product.inStock === false ? "pointer-events-none opacity-40" : ""}`}
+                        aria-label="Chagua saizi au rangi"
+                        data-testid="choose-options"
+                      >
+                        Chagua
+                      </Link>
+                    ) : (
                     <button
                       onClick={() => addToCart(product)}
                       disabled={product.inStock === false}
@@ -638,6 +650,7 @@ export default function SipikiListing() {
                     >
                       <Plus size={18} />
                     </button>
+                    )}
                   </div>
 
                   {inCart && (

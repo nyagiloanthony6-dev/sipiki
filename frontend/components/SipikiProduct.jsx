@@ -85,11 +85,31 @@ export default function SipikiProduct({ slug }) {
 
   const images = product?.images || [];
   const inStock = (product?.stockQuantity ?? 0) > 0;
+  const variants = product?.variants || [];
+  const sizes = [...new Set(variants.map((v) => v.size).filter(Boolean))];
+  const colors = [...new Set(variants.map((v) => v.color).filter(Boolean))];
+  const [size, setSize] = useState("");
+  const [color, setColor] = useState("");
+  const [pickError, setPickError] = useState("");
+  // The option the customer has fully chosen (when only sizes or only colours exist, one choice is enough)
+  const chosen = variants.length === 0 ? null
+    : variants.find((v) => (sizes.length === 0 || v.size === size) && (colors.length === 0 || v.color === color)) || null;
+  const left = variants.length === 0 ? product?.stockQuantity ?? 0 : chosen ? chosen.stockQuantity : null;
+  // A size/colour is greyed out when nothing is left in it (for the colour/size already picked, if any)
+  const available = (kind, value) => variants.some((v) => v[kind] === value && v.stockQuantity > 0 && (kind === "size" ? !color || v.color === color : !size || v.size === size));
+  const specs = Array.isArray(product?.specs) ? product.specs : [];
 
   function addToCart(openCart) {
+    if (variants.length > 0 && !chosen) {
+      setPickError(sizes.length && !size ? "Chagua saizi kwanza" : "Chagua rangi kwanza");
+      return;
+    }
+    if (chosen && chosen.stockQuantity <= 0) { setPickError("Chaguo hili limeisha. Chagua lingine."); return; }
+    setPickError("");
     cart.add({
       id: product.id, title: product.title, price: Math.round(product.priceCents / 100),
       image: images[0] ? imageSrc(images[0].url, 400) : null, vendor: product.vendor?.storeName, slug: product.slug,
+      ...(chosen ? { variantId: chosen.id, variantLabel: [chosen.size && `Saizi ${chosen.size}`, chosen.color].filter(Boolean).join(" · "), stock: chosen.stockQuantity } : { stock: product.stockQuantity }),
     });
     if (openCart) setCartOpen(true);
     else { setJustAdded(true); setTimeout(() => setJustAdded(false), 1800); }
@@ -157,14 +177,64 @@ export default function SipikiProduct({ slug }) {
               {product.category?.name && <p className="flex items-center gap-1.5 text-xs font-semibold text-slate-500"><Tag size={13} /> {product.category.name}</p>}
               <h1 className="mt-1 text-2xl font-extrabold leading-tight text-slate-900">{product.title}</h1>
               <p className="mt-3 text-3xl font-extrabold text-orange-600"><span className="text-base font-semibold">TSh </span>{Math.round(product.priceCents / 100).toLocaleString("en-US")}</p>
-              <p className={`mt-2 inline-block rounded-full px-3 py-1 text-xs font-bold ${inStock ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>
-                {inStock ? `Ipo (${product.stockQuantity})` : "Imeisha"}
+              <p data-testid="stock-pill" className={`mt-2 inline-block rounded-full px-3 py-1 text-xs font-bold ${inStock && left !== 0 && left !== null ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>
+                {!inStock ? "Imeisha" : left === null ? "Chagua saizi / rangi" : left === 0 ? "Imeisha" : `Ipo (${left})`}
               </p>
+              {variants.length > 0 && (
+                <div className="mt-5 space-y-4" data-testid="options">
+                  {sizes.length > 0 && (
+                    <fieldset>
+                      <legend className="text-sm font-bold text-slate-900">Saizi{size && <span className="ml-2 font-semibold text-slate-500">{size}</span>}</legend>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {sizes.map((sz) => {
+                          const ok = available("size", sz);
+                          return (
+                            <button key={sz} type="button" aria-pressed={size === sz} disabled={!ok} onClick={() => { setSize(sz); setPickError(""); }}
+                              className={`min-w-[2.75rem] rounded-lg border-2 px-3 py-2 text-sm font-bold transition ${size === sz ? "border-orange-500 bg-orange-50 text-orange-700" : "border-stone-200 text-slate-700 hover:border-stone-400"} ${!ok ? "cursor-not-allowed text-stone-300 line-through hover:border-stone-200" : ""}`}>
+                              {sz}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </fieldset>
+                  )}
+                  {colors.length > 0 && (
+                    <fieldset>
+                      <legend className="text-sm font-bold text-slate-900">Rangi{color && <span className="ml-2 font-semibold text-slate-500">{color}</span>}</legend>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {colors.map((c) => {
+                          const ok = available("color", c);
+                          return (
+                            <button key={c} type="button" aria-pressed={color === c} disabled={!ok} onClick={() => { setColor(c); setPickError(""); }}
+                              className={`rounded-lg border-2 px-3 py-2 text-sm font-bold transition ${color === c ? "border-orange-500 bg-orange-50 text-orange-700" : "border-stone-200 text-slate-700 hover:border-stone-400"} ${!ok ? "cursor-not-allowed text-stone-300 line-through hover:border-stone-200" : ""}`}>
+                              {c}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </fieldset>
+                  )}
+                  {pickError && <p role="alert" data-testid="pick-error" className="text-sm font-semibold text-red-600">{pickError}</p>}
+                </div>
+              )}
               <p className="mt-4 flex items-center gap-2 text-sm text-slate-600"><Store size={16} className="text-slate-400" /> Muuzaji: <b className="text-slate-800">{product.vendor?.storeName}</b></p>
               {product.description && (
                 <div className="mt-5">
                   <h2 className="text-sm font-bold text-slate-900">Maelezo</h2>
                   <p className="mt-1 whitespace-pre-line text-sm leading-relaxed text-slate-600">{product.description}</p>
+                </div>
+              )}
+              {specs.length > 0 && (
+                <div className="mt-5" data-testid="specs">
+                  <h2 className="text-sm font-bold text-slate-900">Maelezo ya bidhaa</h2>
+                  <dl className="mt-2 divide-y divide-stone-100 overflow-hidden rounded-xl border border-stone-200 bg-white text-sm">
+                    {specs.map((sp, n) => (
+                      <div key={n} className="grid grid-cols-5 gap-2 px-3 py-2">
+                        <dt className="col-span-2 font-semibold text-slate-500">{sp.label}</dt>
+                        <dd className="col-span-3 break-words text-slate-800">{sp.value}</dd>
+                      </div>
+                    ))}
+                  </dl>
                 </div>
               )}
               <div className="mt-6 flex flex-col gap-2 sm:flex-row">

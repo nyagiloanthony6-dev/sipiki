@@ -171,16 +171,34 @@ model Product {
   createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
   deletedAt     DateTime? @map("deleted_at") @db.Timestamptz(6)
+  specs         Json      @default("[]")
 
   vendor     Vendor         @relation(fields: [vendorId], references: [id], onDelete: Cascade)
   category   Category?      @relation(fields: [categoryId], references: [id])
   images     ProductImage[]
+  variants   ProductVariant[]
   tags       ProductTag[]
   reviews    Review[]
   cartItems  CartItem[]
   orderItems OrderItem[]
 
   @@map("products")
+}
+
+model ProductVariant {
+  id            String   @id @default(uuid()) @db.Uuid
+  productId     String   @map("product_id") @db.Uuid
+  size          String   @default("") @db.VarChar(20)
+  color         String   @default("") @db.VarChar(30)
+  stockQuantity Int      @default(0) @map("stock_quantity")
+  position      Int      @default(0) @db.SmallInt
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  product    Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  orderItems OrderItem[]
+
+  @@unique([productId, size, color])
+  @@map("product_variants")
 }
 
 model ProductImage {
@@ -286,14 +304,17 @@ model OrderItem {
   productId         String      @map("product_id") @db.Uuid
   vendorId          String      @map("vendor_id") @db.Uuid
   productTitle      String?     @map("product_title") @db.VarChar(255)
+  variantId         String?     @map("variant_id") @db.Uuid
+  variantLabel      String?     @map("variant_label") @db.VarChar(80)
   quantity          Int
   unitPriceCents    Int         @map("unit_price_cents")
   subtotalCents     Int         @map("subtotal_cents")
   fulfillmentStatus OrderStatus @default(pending) @map("fulfillment_status")
 
   order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  product Product @relation(fields: [productId], references: [id])
-  vendor  Vendor  @relation(fields: [vendorId], references: [id])
+  product Product         @relation(fields: [productId], references: [id])
+  variant ProductVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
+  vendor  Vendor          @relation(fields: [vendorId], references: [id])
 
   @@map("order_items")
 }

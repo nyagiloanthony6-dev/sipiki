@@ -11,6 +11,9 @@ const KEY = "sipiki_cart_v1";
 const MAX_LINES = 20;
 const MAX_QTY = 50;
 
+/** One cart line = one product in one size/colour. */
+export const lineKey = (l) => `${l.productId}:${l.variantId || ""}`;
+
 const valid = (l) => l && typeof l.productId === "string" && Number.isInteger(l.quantity) && l.quantity > 0 && typeof l.title === "string" && Number.isFinite(l.price);
 
 function read() {
@@ -41,19 +44,24 @@ export function useCart() {
   }, []);
 
   const add = useCallback((product, quantity = 1) => commit((prev) => {
-    const found = prev.find((l) => l.productId === product.id);
-    if (found) return prev.map((l) => (l.productId === product.id ? { ...l, quantity: Math.min(MAX_QTY, l.quantity + quantity) } : l));
+    const key = `${product.id}:${product.variantId || ""}`;
+    const cap = Math.min(MAX_QTY, product.stock > 0 ? product.stock : MAX_QTY); // never offer more than the shop has
+    const found = prev.find((l) => lineKey(l) === key);
+    if (found) return prev.map((l) => (lineKey(l) === key ? { ...l, stock: product.stock ?? l.stock, quantity: Math.min(cap, l.quantity + quantity) } : l));
     if (prev.length >= MAX_LINES) return prev;
     return [...prev, {
-      productId: product.id, quantity: Math.min(MAX_QTY, quantity), title: product.title, price: product.price,
+      productId: product.id, variantId: product.variantId || null, variantLabel: product.variantLabel || "", stock: product.stock || 0,
+      quantity: Math.min(cap, quantity), title: product.title, price: product.price,
       image: product.image || null, vendor: product.vendor || "", slug: product.slug || null, emoji: product.emoji || null,
     }];
   }), [commit]);
 
-  const setQuantity = useCallback((productId, quantity) => commit((prev) =>
-    quantity <= 0 ? prev.filter((l) => l.productId !== productId) : prev.map((l) => (l.productId === productId ? { ...l, quantity: Math.min(MAX_QTY, quantity) } : l))), [commit]);
+  const setQuantity = useCallback((key, quantity) => commit((prev) =>
+    quantity <= 0 ? prev.filter((l) => lineKey(l) !== key)
+      : prev.map((l) => (lineKey(l) === key ? { ...l, quantity: Math.min(MAX_QTY, l.stock > 0 ? l.stock : MAX_QTY, quantity) } : l))), [commit]);
 
-  const removeMany = useCallback((ids) => commit((prev) => prev.filter((l) => !ids.includes(l.productId))), [commit]);
+  // The server names products (not lines) it can no longer sell, so every size/colour of them goes
+  const removeMany = useCallback((productIds) => commit((prev) => prev.filter((l) => !productIds.includes(l.productId))), [commit]);
   const clear = useCallback(() => commit(() => []), [commit]);
 
   const count = useMemo(() => lines.reduce((s, l) => s + l.quantity, 0), [lines]);
