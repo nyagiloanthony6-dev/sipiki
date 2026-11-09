@@ -72,6 +72,17 @@ const vendorRegistrationSchema = z.object({
   terms: z.literal(true, { errorMap: () => ({ message: 'Lazima ukubali masharti' }) }),
 });
 
+// Adding another shop: only what is specific to the shop. Owner, NIDA, ID and payout details are reused.
+const newShopSchema = z.object({
+  businessName: vendorRegistrationSchema.shape.businessName,
+  businessType: vendorRegistrationSchema.shape.businessType,
+  region: vendorRegistrationSchema.shape.region,
+  location: vendorRegistrationSchema.shape.location,
+  categories: vendorRegistrationSchema.shape.categories,
+  description: vendorRegistrationSchema.shape.description,
+  tin, // every shop needs its own TIN
+});
+
 const loginSchema = z.object({
   email: z.string().trim().toLowerCase().email(),
   password: z.string().min(1).max(72),
@@ -88,4 +99,4 @@ const reasonSchema = z.object({
   reason: z.string().trim().min(5, 'Eleza sababu kwa ufupi').max(300),
 });
 
-module.exports = { REGIONS, vendorRegistrationSchema, loginSchema, customerRegistrationSchema, reasonSchema };
+module.exports = { REGIONS, newShopSchema, vendorRegistrationSchema, loginSchema, customerRegistrationSchema, reasonSchema };

@@ -17,6 +17,7 @@ const prisma = require('../config/db');
 const { normalizePhone } = require('../utils/phone');
 const { REGIONS } = require('../validators/vendor.validators');
 const { sendSms } = require('../services/sms.service');
+const { resolveShop } = require('../utils/shop');
 
 const MAX_INT = 2_147_483_647; // INTEGER column limit (cents)
 const REF_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no 0/O/1/I — easy to read out over the phone
@@ -206,8 +207,11 @@ async function trackOrder(req, res) {
 // ---- seller: see and handle their orders --------------------------------------
 
 async function activeVendorOf(req, res) {
-  const vendor = await prisma.vendor.findUnique({ where: { userId: req.user.id } });
-  if (!vendor) { res.status(404).json({ error: 'Hakuna wasifu wa muuzaji kwa akaunti hii' }); return null; }
+  const { vendor, missing } = await resolveShop(req);
+  if (!vendor) {
+    res.status(404).json(missing ? { error: 'Duka hili halipatikani kwenye akaunti yako', code: 'shop_not_found' } : { error: 'Hakuna wasifu wa muuzaji kwa akaunti hii' });
+    return null;
+  }
   if (vendor.status !== 'active') { res.status(403).json({ error: 'Akaunti yako haijaidhinishwa au imesimamishwa', status: vendor.status }); return null; }
   return vendor;
 }

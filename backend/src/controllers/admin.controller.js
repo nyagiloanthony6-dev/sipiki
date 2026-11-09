@@ -182,8 +182,15 @@ async function getVendor(req, res) {
       console.error('NIDA decrypt failed for vendor', vendor.id, err.message);
     }
 
+    // Other shops run by the same owner (so the admin knows this is an existing owner)
+    const others = await prisma.vendor.findMany({
+      where: { userId: vendor.userId, id: { not: vendor.id } },
+      orderBy: { createdAt: 'asc' },
+      select: { id: true, storeName: true, status: true },
+    });
+
     const { nidaNumberEncrypted, ...safe } = vendor; // strip the ciphertext from the response
-    res.json({ ...safe, nidaMasked });
+    res.json({ ...safe, nidaMasked, otherShops: others });
   } catch (err) {
     console.error('getVendor error:', err);
     res.status(500).json({ error: 'Imeshindikana kupata taarifa za muuzaji' });

@@ -27,7 +27,7 @@ export class ApiError extends Error {
   }
 }
 
-export async function request(path, { method = "GET", body, token = getToken() } = {}) {
+export async function request(path, { method = "GET", body, token = getToken(), headers: extra = {} } = {}) {
   let res;
   try {
     res = await fetch(`${API_URL}${path}`, {
@@ -35,6 +35,7 @@ export async function request(path, { method = "GET", body, token = getToken() }
       headers: {
         ...(body ? { "Content-Type": "application/json" } : {}),
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...extra,
       },
       body: body ? JSON.stringify(body) : undefined,
       cache: "no-store",

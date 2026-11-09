@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { handleUpload, registerVendor, listCategories } = require('../controllers/vendor.controller');
+const { handleUpload, registerVendor, listCategories, createShop } = require('../controllers/vendor.controller');
 const portal = require('../controllers/vendorPortal.controller');
 const orders = require('../controllers/order.controller');
 const { authenticate } = require('../middleware/auth.middleware');
@@ -33,6 +33,7 @@ router.patch('/me/products/:id', ...vendorOnly, portalWriteLimiter, portal.updat
 router.delete('/me/products/:id', ...vendorOnly, portalWriteLimiter, portal.deleteProduct);
 router.post('/me/products/:id/images', ...vendorOnly, portalWriteLimiter, portal.handleImageUpload, portal.addImage);
 router.delete('/me/products/:id/images/:imageId', ...vendorOnly, portalWriteLimiter, portal.deleteImage);
+router.post('/me/shops', ...vendorOnly, portalWriteLimiter, handleUpload, createShop);
 router.patch('/me/categories', ...vendorOnly, portalWriteLimiter, portal.updateMyCategories);
 router.get('/me/orders', ...vendorOnly, orders.listVendorOrders);
 router.patch('/me/orders/:orderId/status', ...vendorOnly, portalWriteLimiter, orders.updateVendorOrderStatus);

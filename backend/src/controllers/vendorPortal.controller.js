@@ -17,6 +17,7 @@
 const crypto = require('crypto');
 const { z } = require('zod');
 const prisma = require('../config/db');
+const { resolveShop } = require('../utils/shop');
 const { uploadProductImage, detectImageMime, processProductImage, deleteImageFile } = require('../config/upload');
 
 const MAX_IMAGES = 4;
@@ -57,9 +58,11 @@ const PRODUCT_SELECT = {
 
 /** The vendor row belonging to the signed-in user (or sends 404 and returns null). */
 async function myVendor(req, res) {
-  const vendor = await prisma.vendor.findUnique({ where: { userId: req.user.id } });
+  const { vendor, missing } = await resolveShop(req);
   if (!vendor) {
-    res.status(404).json({ error: 'Hakuna wasifu wa muuzaji kwa akaunti hii' });
+    res.status(404).json(missing
+      ? { error: 'Duka hili halipatikani kwenye akaunti yako', code: 'shop_not_found' }
+      : { error: 'Hakuna wasifu wa muuzaji kwa akaunti hii' });
     return null;
   }
   return vendor;
@@ -91,8 +94,14 @@ const withMoney = (p) => ({ ...p, priceTsh: Math.round(p.priceCents / 100) });
 /** GET /api/vendors/me */
 async function getMe(req, res) {
   try {
+    const { vendor: chosen, shops, missing } = await resolveShop(req);
+    if (!chosen) {
+      return res.status(404).json(missing
+        ? { error: 'Duka hili halipatikani kwenye akaunti yako', code: 'shop_not_found' }
+        : { error: 'Hakuna wasifu wa muuzaji kwa akaunti hii' });
+    }
     const vendor = await prisma.vendor.findUnique({
-      where: { userId: req.user.id },
+      where: { id: chosen.id },
       select: {
         id: true, storeName: true, storeSlug: true, status: true, applicationRef: true,
         rejectionReason: true, suspensionReason: true, createdAt: true, reviewedAt: true,
@@ -103,7 +112,8 @@ async function getMe(req, res) {
       },
     });
     if (!vendor) return res.status(404).json({ error: 'Hakuna wasifu wa muuzaji kwa akaunti hii' });
-    res.json(vendor);
+    // every shop of this owner, so the portal can offer a switcher
+    res.json({ ...vendor, shops: shops.map((x) => ({ id: x.id, storeName: x.storeName, status: x.status, applicationRef: x.applicationRef })) });
   } catch (err) {
     console.error('getMe error:', err);
     res.status(500).json({ error: 'Imeshindikana kupata taarifa' });

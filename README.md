@@ -132,3 +132,14 @@ money paid to the seller) — `payment_method = 'on_delivery'`, so online paymen
   status change. Set `SMS_PROVIDER=beem` and the Beem keys; otherwise messages are printed in the Railway log.
 - `platform_fee_cents` is 0 for now — decide the commission before real payouts.
 - Migration `005_guest_orders.sql` makes `orders.user_id` optional and adds order number, customer name/phone and payment method.
+
+## More than one shop per owner
+
+A seller can run several shops from one login. In the vendor portal, the shop name at the top opens a menu: **Maduka yangu** lists every shop with its status, and **Ongeza duka jipya** opens the add-shop form.
+
+- The new shop reuses the owner's name, phone, NIDA, ID document and payout account, so none of that is typed or uploaded again.
+- Each shop needs its own business name, location, categories, **TIN** and its own **licence and TIN certificate**. A TIN can only belong to one shop, so branches that share a TIN cannot be registered separately.
+- A new shop goes through the same admin approval as the first one. The admin sees a note: "this owner has other shops".
+- Products, orders, categories and the overview are separate for each shop. Orders and SMS texts go to the right shop.
+- An owner can have up to 5 shops that are not rejected. The first shop must be approved before adding another.
+- Database change: `006_multiple_shops.sql` runs on its own when the API starts. Look for `[db] applying 006_multiple_shops.sql` in the Railway log.

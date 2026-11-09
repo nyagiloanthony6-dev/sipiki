@@ -1,12 +1,13 @@
 "use client";
 import Link from "next/link";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, createContext, useContext } from "react";
 import {
   LayoutDashboard, Package, ClipboardList, Store, LogOut, Lock, Loader2, Plus, X, Pencil, Trash2,
-  Eye, EyeOff, ImagePlus, Clock, Ban, XCircle, CheckCircle2, Circle, TrendingUp, Wallet, MapPin, Phone, Mail, FileText,
+  Eye, EyeOff, ImagePlus, ChevronDown, Upload, Clock, Ban, XCircle, CheckCircle2, Circle, TrendingUp, Wallet, MapPin, Phone, Mail, FileText,
 } from "lucide-react";
 import { apiConfigured, request } from "../lib/adminApi";
-import { vrequest, getVendorToken, setVendorToken, imageSrc, shrinkImage, checkPhoto, uploadProductImage } from "../lib/vendorApi";
+import { REGIONS } from "../lib/regions";
+import { vrequest, getVendorToken, setVendorToken, getShopId, setShopId, createShop, imageSrc, shrinkImage, checkPhoto, uploadProductImage } from "../lib/vendorApi";
 
 // ============================================================================
 // SIPIKI — Vendor portal (/vendor)
@@ -82,13 +83,25 @@ function LoginScreen({ onSignedIn, notice }) {
 
 // ---- session wrapper (what the /vendor page renders) ---------------------------
 
+const ShopCtx = createContext({ shops: [], currentId: null, switchShop: () => {}, openNewShop: () => {} });
+
+const SHOP_STATUS = {
+  pending: ["Inasubiri", "bg-amber-100 text-amber-800"],
+  active: ["Hai", "bg-emerald-100 text-emerald-800"],
+  rejected: ["Limekataliwa", "bg-red-100 text-red-700"],
+  suspended: ["Limesimamishwa", "bg-slate-200 text-slate-600"],
+};
+
 export default function SipikiVendor() {
   const [me, setMe] = useState(null);
   const [checking, setChecking] = useState(true);
   const [notice, setNotice] = useState("");
+  const [view, setView] = useState("portal"); // portal | newshop
 
   const signOut = useCallback((message = "") => {
     setVendorToken(null);
+    setShopId(null);
+    setView("portal");
     setMe(null);
     setNotice(message);
   }, []);
@@ -97,6 +110,7 @@ export default function SipikiVendor() {
     try {
       setMe(await vrequest("/vendors/me"));
     } catch (err) {
+      if (err.status === 404 && err.data?.code === "shop_not_found") { setShopId(null); try { setMe(await vrequest("/vendors/me")); return; } catch { /* fall through to sign-out */ } }
       signOut(err.status === 401 || err.status === 403 ? "Muda wa kuingia umeisha. Tafadhali ingia tena." : err.message);
     } finally {
       setChecking(false);
@@ -119,8 +133,239 @@ export default function SipikiVendor() {
     );
   }
   if (checking) return <div className="flex min-h-screen items-center justify-center bg-slate-900 text-slate-300"><Loader2 className="animate-spin" /></div>;
-  if (!me) return <LoginScreen notice={notice} onSignedIn={() => { setNotice(""); setChecking(true); loadMe(); }} />;
-  return <Portal me={me} onSignOut={signOut} onRefresh={loadMe} />;
+  if (!me) return <LoginScreen notice={notice} onSignedIn={() => { setShopId(null); setNotice(""); setChecking(true); loadMe(); }} />;
+
+  const ctx = {
+    shops: me.shops || [],
+    currentId: me.id,
+    switchShop: (id) => { setShopId(id); setView("portal"); setChecking(true); loadMe(); },
+    openNewShop: () => setView("newshop"),
+  };
+  return (
+    <ShopCtx.Provider value={ctx}>
+      {view === "newshop"
+        ? <NewShop me={me} onSignOut={signOut} onCancel={() => setView("portal")} onCreated={(shop) => ctx.switchShop(shop.id)} />
+        : <Portal key={me.id} me={me} onSignOut={signOut} onRefresh={loadMe} />}
+    </ShopCtx.Provider>
+  );
+}
+
+// ---- shop switcher (header) ------------------------------------------------------
+
+function ShopMenu({ me }) {
+  const { shops, currentId, switchShop, openNewShop } = useContext(ShopCtx);
+  const [open, setOpen] = useState(false);
+  const canAdd = shops.some((s) => s.status === "active");
+  useEffect(() => {
+    if (!open) return undefined;
+    const onKey = (e) => { if (e.key === "Escape") setOpen(false); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open]);
+  return (
+    <div className="relative">
+      <button onClick={() => setOpen((o) => !o)} aria-haspopup="menu" aria-expanded={open} data-testid="shop-menu"
+        className="flex max-w-[14rem] items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-semibold text-slate-200 hover:bg-slate-800">
+        <Store size={15} className="flex-shrink-0" /> <span className="truncate">{me.storeName}</span> <ChevronDown size={14} className="flex-shrink-0" />
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-30" onClick={() => setOpen(false)} />
+          <div role="menu" className="absolute right-0 z-40 mt-2 w-72 overflow-hidden rounded-xl border border-stone-200 bg-white py-1 shadow-xl">
+            <p className="px-4 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Maduka yangu</p>
+            {shops.map((s) => {
+              const [label, cls] = SHOP_STATUS[s.status] || SHOP_STATUS.pending;
+              return (
+                <button key={s.id} role="menuitem" onClick={() => { setOpen(false); if (s.id !== currentId) switchShop(s.id); }}
+                  className={`flex w-full items-center justify-between gap-2 px-4 py-2.5 text-left text-sm hover:bg-stone-50 ${s.id === currentId ? "bg-orange-50/60" : ""}`}>
+                  <span className="min-w-0 truncate font-semibold text-slate-800">{s.storeName}</span>
+                  <span className={`flex-shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${cls}`}>{label}</span>
+                </button>
+              );
+            })}
+            {canAdd && (
+              <button role="menuitem" onClick={() => { setOpen(false); openNewShop(); }} className="flex w-full items-center gap-2 border-t border-stone-100 px-4 py-3 text-left text-sm font-bold text-orange-700 hover:bg-orange-50">
+                <Plus size={16} /> Ongeza duka jipya
+              </button>
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ---- add another shop ------------------------------------------------------------
+
+const BUSINESS_TYPES = ["Mtu Binafsi", "Kampuni (Ltd)", "Ushirika / Kikundi"];
+const MAX_DOC_BYTES = 5 * 1024 * 1024;
+const DOC_OK = ["application/pdf", "image/jpeg", "image/png"];
+
+function NewShop({ me, onSignOut, onCancel, onCreated }) {
+  const [form, setForm] = useState({ businessName: "", businessType: "", region: "", location: "", description: "", tin: "" });
+  const [cats, setCats] = useState(null); // categories open for registration
+  const [chosen, setChosen] = useState(new Set());
+  const [files, setFiles] = useState({ licenseDoc: null, tinDoc: null });
+  const [errors, setErrors] = useState({});
+  const [formError, setFormError] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    request("/vendors/categories", { token: null }).then((r) => setCats(r.data)).catch(() => setCats([]));
+  }, []);
+
+  const set = (k, v) => { setForm((f) => ({ ...f, [k]: v })); setErrors((e) => ({ ...e, [k]: undefined })); };
+  const input = (bad) => `mt-1 w-full rounded-xl border px-3 py-2.5 text-sm outline-none focus:border-orange-500 ${bad ? "border-red-400" : "border-stone-300"}`;
+  const Err = ({ k }) => (errors[k] ? <p className="mt-1 text-xs font-medium text-red-600">{errors[k]}</p> : null);
+
+  function pickFile(field, file) {
+    setErrors((e) => ({ ...e, [field]: undefined }));
+    if (!file) { setFiles((f) => ({ ...f, [field]: null })); return; }
+    if (!DOC_OK.includes(file.type)) { setErrors((e) => ({ ...e, [field]: "Tumia PDF, JPG au PNG" })); return; }
+    if (file.size > MAX_DOC_BYTES) { setErrors((e) => ({ ...e, [field]: "Faili ni kubwa mno (kiwango ni 5 MB)" })); return; }
+    setFiles((f) => ({ ...f, [field]: file }));
+  }
+
+  function validate() {
+    const e = {};
+    if (form.businessName.trim().length < 3) e.businessName = "Andika jina la duka (angalau herufi 3)";
+    if (!form.businessType) e.businessType = "Chagua aina ya biashara";
+    if (!form.region) e.region = "Chagua mkoa";
+    if (form.location.trim().length < 3) e.location = "Andika eneo la duka";
+    if (chosen.size === 0) e.categories = "Chagua angalau kundi moja";
+    if (form.tin.replace(/\D/g, "").length !== 9) e.tin = "TIN ina tarakimu 9";
+    if (!files.licenseDoc) e.licenseDoc = "Pakia leseni ya biashara ya duka hili";
+    if (!files.tinDoc) e.tinDoc = "Pakia cheti cha TIN cha duka hili";
+    setErrors(e);
+    return Object.keys(e).length === 0;
+  }
+
+  async function submit(ev) {
+    ev.preventDefault();
+    if (busy || !validate()) return;
+    setBusy(true);
+    setFormError("");
+    try {
+      const body = new FormData();
+      Object.entries(form).forEach(([k, v]) => body.append(k, typeof v === "string" ? v.trim() : v));
+      body.append("categories", JSON.stringify([...chosen]));
+      body.append("licenseDoc", files.licenseDoc);
+      body.append("tinDoc", files.tinDoc);
+      const shop = await createShop(body);
+      onCreated(shop);
+    } catch (err) {
+      if (err.status === 401 || err.status === 403 && !err.data?.error?.includes("kwanza")) { onSignOut("Muda wa kuingia umeisha. Tafadhali ingia tena."); return; }
+      const d = err.data?.details || {};
+      const mapped = {};
+      Object.entries(d).forEach(([k, v]) => { mapped[k] = Array.isArray(v) ? v[0] : String(v); });
+      setErrors(mapped);
+      setFormError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const reused = [
+    { label: "Mmiliki", value: me.user?.fullName },
+    { label: "Simu", value: me.ownerPhone },
+    { label: "NIDA na kitambulisho", value: "Vilivyotumika kwenye duka la kwanza" },
+    { label: "Akaunti ya malipo", value: me.payoutProvider ? `${me.payoutProvider} · ${me.payoutPhone}${me.payoutAccountName ? ` (${me.payoutAccountName})` : ""}` : "—" },
+  ];
+
+  return (
+    <Shell me={me} onSignOut={onSignOut}>
+      <form onSubmit={submit} noValidate className="mx-auto max-w-2xl">
+        <button type="button" onClick={onCancel} className="mb-3 text-sm font-semibold text-slate-500 hover:text-slate-800">← Rudi</button>
+        <h1 className="text-2xl font-extrabold text-slate-900">Ongeza Duka Jipya</h1>
+        <p className="mb-5 text-sm text-slate-500">Taarifa zako binafsi zinatumika tena. Duka jipya linahitaji leseni na TIN yake, kisha Sipiki litalikagua kabla halijaanza kuuza.</p>
+
+        {formError && <p role="alert" className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">{formError}</p>}
+
+        <section className="rounded-2xl border border-emerald-200 bg-emerald-50/50 p-5">
+          <h2 className="flex items-center gap-2 text-sm font-extrabold text-emerald-800"><CheckCircle2 size={16} /> Taarifa zinazotumika tena</h2>
+          <dl className="mt-2 grid gap-x-6 gap-y-1.5 text-sm sm:grid-cols-2">
+            {reused.map((r) => (<div key={r.label}><dt className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">{r.label}</dt><dd className="font-semibold text-slate-800">{r.value || "—"}</dd></div>))}
+          </dl>
+        </section>
+
+        <section className="mt-5 space-y-4 rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
+          <h2 className="text-sm font-extrabold text-slate-900">Duka jipya</h2>
+          <div>
+            <label htmlFor="n-name" className="text-sm font-semibold text-slate-800">Jina la duka *</label>
+            <input id="n-name" className={input(errors.businessName)} value={form.businessName} maxLength={120} onChange={(e) => set("businessName", e.target.value)} />
+            <Err k="businessName" />
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label htmlFor="n-type" className="text-sm font-semibold text-slate-800">Aina ya biashara *</label>
+              <select id="n-type" className={input(errors.businessType)} value={form.businessType} onChange={(e) => set("businessType", e.target.value)}>
+                <option value="">— Chagua —</option>{BUSINESS_TYPES.map((t) => <option key={t}>{t}</option>)}
+              </select>
+              <Err k="businessType" />
+            </div>
+            <div>
+              <label htmlFor="n-region" className="text-sm font-semibold text-slate-800">Mkoa *</label>
+              <select id="n-region" className={input(errors.region)} value={form.region} onChange={(e) => set("region", e.target.value)}>
+                <option value="">— Chagua —</option>{REGIONS.map((r) => <option key={r}>{r}</option>)}
+              </select>
+              <Err k="region" />
+            </div>
+          </div>
+          <div>
+            <label htmlFor="n-loc" className="text-sm font-semibold text-slate-800">Eneo la duka *</label>
+            <input id="n-loc" className={input(errors.location)} value={form.location} maxLength={200} placeholder="Mtaa / soko / jengo" onChange={(e) => set("location", e.target.value)} />
+            <Err k="location" />
+          </div>
+          <div>
+            <label htmlFor="n-desc" className="text-sm font-semibold text-slate-800">Maelezo <span className="font-normal text-slate-400">(hiari)</span></label>
+            <textarea id="n-desc" rows={2} className={input(false)} value={form.description} maxLength={1000} onChange={(e) => set("description", e.target.value)} />
+          </div>
+          <fieldset>
+            <legend className="text-sm font-semibold text-slate-800">Makundi ya bidhaa *</legend>
+            {cats === null && <p className="mt-2 flex items-center gap-2 text-sm text-slate-400"><Loader2 size={15} className="animate-spin" /> Inapakia...</p>}
+            {cats && cats.length === 0 && <p className="mt-2 rounded-xl bg-amber-50 p-3 text-sm text-amber-800">Hakuna kundi linalopokea maombi kwa sasa. Jaribu tena baadaye.</p>}
+            <div className="mt-2 grid gap-2 sm:grid-cols-2">
+              {(cats || []).map((c) => (
+                <label key={c} className="flex cursor-pointer items-center gap-2.5 rounded-xl border border-stone-200 px-3 py-2.5 text-sm hover:border-orange-300">
+                  <input type="checkbox" className="h-4 w-4 accent-orange-600" checked={chosen.has(c)} onChange={() => { setErrors((e) => ({ ...e, categories: undefined })); setChosen((p) => { const n = new Set(p); if (n.has(c)) n.delete(c); else n.add(c); return n; }); }} />
+                  <span className="font-semibold text-slate-800">{c}</span>
+                </label>
+              ))}
+            </div>
+            <Err k="categories" />
+          </fieldset>
+        </section>
+
+        <section className="mt-5 space-y-4 rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
+          <h2 className="text-sm font-extrabold text-slate-900">Nyaraka za duka hili</h2>
+          <div>
+            <label htmlFor="n-tin" className="text-sm font-semibold text-slate-800">Namba ya TIN ya duka hili *</label>
+            <input id="n-tin" inputMode="numeric" className={input(errors.tin)} value={form.tin} placeholder="123-456-789" maxLength={11} onChange={(e) => set("tin", e.target.value)} />
+            <p className="mt-1 text-xs text-slate-400">Kila duka linahitaji TIN yake — isiwe sawa na ya duka lingine.</p>
+            <Err k="tin" />
+          </div>
+          {[["licenseDoc", "Leseni ya biashara ya duka hili *"], ["tinDoc", "Cheti cha TIN cha duka hili *"]].map(([field, label]) => (
+            <div key={field}>
+              <label htmlFor={`n-${field}`} className="text-sm font-semibold text-slate-800">{label}</label>
+              <label htmlFor={`n-${field}`} className={`mt-1 flex cursor-pointer items-center gap-3 rounded-xl border-2 border-dashed px-4 py-3 text-sm hover:border-orange-400 ${errors[field] ? "border-red-400" : "border-stone-300"}`}>
+                <Upload size={18} className="flex-shrink-0 text-slate-400" />
+                <span className={`min-w-0 truncate ${files[field] ? "font-semibold text-slate-800" : "text-slate-400"}`}>{files[field] ? files[field].name : "Bonyeza kuchagua faili (PDF, JPG au PNG, hadi 5 MB)"}</span>
+              </label>
+              <input id={`n-${field}`} type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" className="sr-only" onChange={(e) => { pickFile(field, e.target.files?.[0] || null); e.target.value = ""; }} />
+              <Err k={field} />
+            </div>
+          ))}
+        </section>
+
+        <div className="mt-6 flex justify-end gap-2">
+          <button type="button" onClick={onCancel} className="rounded-xl px-5 py-3 text-sm font-semibold text-slate-600 hover:bg-stone-100">Ghairi</button>
+          <button type="submit" disabled={busy} className="flex items-center gap-2 rounded-xl bg-orange-600 px-6 py-3 text-sm font-bold text-white hover:bg-orange-700 disabled:opacity-60">
+            {busy && <Loader2 size={16} className="animate-spin" />} Tuma Ombi la Duka
+          </button>
+        </div>
+      </form>
+    </Shell>
+  );
 }
 
 // ---- shell + status screens ------------------------------------------------------
@@ -135,7 +380,7 @@ function Shell({ me, onSignOut, children, nav }) {
             <span className="hidden rounded-full bg-emerald-700 px-2.5 py-0.5 text-[11px] font-bold tracking-wide text-white sm:inline">PORTAL YA MUUZAJI</span>
           </Link>
           <div className="flex items-center gap-3">
-            <span className="hidden max-w-[14rem] truncate text-sm text-slate-300 sm:inline">{me.storeName}</span>
+            <ShopMenu me={me} />
             <button onClick={() => onSignOut()} className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-slate-300 hover:bg-slate-800 hover:text-white">
               <LogOut size={15} /> Toka
             </button>

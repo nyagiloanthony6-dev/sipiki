@@ -358,7 +358,7 @@ function Dashboard({ admin, onSignOut }) {
       .then((d) =>
         setVendors((prev) => prev.map((v) =>
           v.id === selectedKey
-            ? { ...v, tin: d.tin, payout: `${d.payoutProvider || ""} · ${d.payoutPhone || ""}${d.payoutAccountName ? ` (${d.payoutAccountName})` : ""}`, nida: d.nidaMasked, detailLoaded: true }
+            ? { ...v, tin: d.tin, payout: `${d.payoutProvider || ""} · ${d.payoutPhone || ""}${d.payoutAccountName ? ` (${d.payoutAccountName})` : ""}`, nida: d.nidaMasked, otherShops: d.otherShops || [], detailLoaded: true }
             : v
         ))
       )
@@ -660,6 +660,11 @@ function Dashboard({ admin, onSignOut }) {
                     </dl>
 
                     <div className="mt-5">
+                      {selected.otherShops?.length > 0 && (
+                        <p className="mb-4 rounded-xl bg-sky-50 p-3 text-xs text-sky-800" data-testid="other-shops">
+                          Mmiliki huyu ana maduka mengine: {selected.otherShops.map((o) => `${o.storeName} (${o.status})`).join(", ")}. Nyaraka za kitambulisho ni zilezile; kagua leseni na TIN ya duka hili.
+                        </p>
+                      )}
                       <div className="mb-2 flex items-center justify-between">
                         <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Makundi ya Bidhaa</p>
                         <button onClick={() => setCatEditId(selected.id)} className="text-xs font-bold text-sky-700 hover:underline">Badilisha</button>

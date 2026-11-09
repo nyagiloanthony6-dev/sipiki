@@ -80,7 +80,7 @@ model User {
   updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
   deletedAt     DateTime? @map("deleted_at") @db.Timestamptz(6)
 
-  vendor          Vendor?               @relation("VendorUser")
+  vendors         Vendor[]              @relation("VendorUser")
   reviewedVendors Vendor[]              @relation("VendorReviewer")
   statusChanges   VendorStatusHistory[]
   cart            Cart?
@@ -92,7 +92,7 @@ model User {
 
 model Vendor {
   id                   String       @id @default(uuid()) @db.Uuid
-  userId               String       @unique @map("user_id") @db.Uuid
+  userId               String       @map("user_id") @db.Uuid
   storeName            String       @map("store_name") @db.VarChar(255)
   storeSlug            String       @unique @map("store_slug") @db.VarChar(255)
   storeDescription     String?      @map("store_description")

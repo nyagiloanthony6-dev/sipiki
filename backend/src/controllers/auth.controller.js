@@ -61,14 +61,14 @@ async function login(req, res) {
   const { email, password } = parsed.data;
 
   try {
-    const user = await prisma.user.findUnique({ where: { email }, include: { vendor: true } });
+    const user = await prisma.user.findUnique({ where: { email }, include: { vendors: { orderBy: { createdAt: 'asc' } } } });
     const passwordOk = await bcrypt.compare(password, user?.passwordHash ?? DUMMY_HASH);
 
     if (!user || user.deletedAt || !passwordOk) {
       return res.status(401).json({ error: 'Barua pepe au nenosiri si sahihi' }); // same message for every failure
     }
 
-    res.json({ token: signToken(user), user: publicUser(user, user.vendor) });
+    res.json({ token: signToken(user), user: publicUser(user, user.vendors.find((v) => v.status === 'active') || user.vendors[0]) });
   } catch (err) {
     console.error('login error:', err);
     res.status(500).json({ error: 'Imeshindikana kuingia' });
@@ -78,9 +78,9 @@ async function login(req, res) {
 /** GET /api/auth/me — who am I (re-reads the DB, so role/status changes show up immediately) */
 async function me(req, res) {
   try {
-    const user = await prisma.user.findUnique({ where: { id: req.user.id }, include: { vendor: true } });
+    const user = await prisma.user.findUnique({ where: { id: req.user.id }, include: { vendors: { orderBy: { createdAt: 'asc' } } } });
     if (!user || user.deletedAt) return res.status(401).json({ error: 'Akaunti haipatikani' });
-    res.json({ user: publicUser(user, user.vendor) });
+    res.json({ user: publicUser(user, user.vendors.find((v) => v.status === 'active') || user.vendors[0]) });
   } catch (err) {
     console.error('me error:', err);
     res.status(500).json({ error: 'Imeshindikana kupata taarifa' });

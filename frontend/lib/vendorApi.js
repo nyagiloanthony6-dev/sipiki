@@ -17,8 +17,39 @@ export function setVendorToken(token) {
   } catch { /* storage blocked — the vendor signs in again after a reload */ }
 }
 
-/** Same as request(), but signed with the vendor's token. */
-export const vrequest = (path, options = {}) => request(path, { ...options, token: getVendorToken() });
+// The owner can run several shops; the chosen shop is sent with every portal request (server checks it is theirs).
+const SHOP_KEY = "sipiki_vendor_shop";
+export function getShopId() {
+  try { return sessionStorage.getItem(SHOP_KEY); } catch { return null; }
+}
+export function setShopId(id) {
+  try {
+    if (id) sessionStorage.setItem(SHOP_KEY, id);
+    else sessionStorage.removeItem(SHOP_KEY);
+  } catch { /* choice is forgotten on reload — the first approved shop is used */ }
+}
+const shopHeader = () => (getShopId() ? { "X-Shop-Id": getShopId() } : {});
+
+/** Same as request(), but signed with the vendor's token and aimed at the chosen shop. */
+export const vrequest = (path, options = {}) =>
+  request(path, { ...options, token: getVendorToken(), headers: { ...shopHeader(), ...(options.headers || {}) } });
+
+/** Adds another shop (multipart: text fields + licenseDoc + tinDoc). Returns the created shop. */
+export async function createShop(formData) {
+  let res;
+  try {
+    res = await fetch(`${API_URL}/vendors/me/shops`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${getVendorToken()}`, ...shopHeader() },
+      body: formData,
+    });
+  } catch {
+    throw new ApiError("Imeshindikana kuwasiliana na seva.", 0);
+  }
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new ApiError(data.error || "Imeshindikana kutuma ombi la duka", res.status, data);
+  return data.shop;
+}
 
 /** Photos are stored as relative addresses (/api/media/...) — put the API address in front. */
 export function imageSrc(url, width) {
@@ -89,7 +120,7 @@ export async function uploadProductImage(productId, fileOrBlob) {
   try {
     res = await fetch(`${API_URL}/vendors/me/products/${productId}/images`, {
       method: "POST",
-      headers: { Authorization: `Bearer ${getVendorToken()}` },
+      headers: { Authorization: `Bearer ${getVendorToken()}`, ...shopHeader() },
       body,
     });
   } catch {
