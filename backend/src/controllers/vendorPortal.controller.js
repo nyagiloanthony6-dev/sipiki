@@ -17,7 +17,7 @@
 const crypto = require('crypto');
 const { z } = require('zod');
 const prisma = require('../config/db');
-const { uploadProductImage, detectImageMime, deleteImageFile } = require('../config/upload');
+const { uploadProductImage, detectImageMime, processProductImage, deleteImageFile } = require('../config/upload');
 
 const MAX_IMAGES = 4;
 const SALE_STATUSES = ['paid', 'processing', 'shipped', 'delivered'];
@@ -300,12 +300,21 @@ async function addImage(req, res) {
       return res.status(400).json({ error: `Unaweza kuweka picha ${MAX_IMAGES} tu kwa kila bidhaa` });
     }
 
+    // Make the smaller copies; a file that cannot be decoded as a picture is refused here
+    let storedMime;
+    try {
+      storedMime = await processProductImage(file.filename);
+    } catch {
+      discard();
+      return res.status(400).json({ error: 'Picha hii haisomeki. Jaribu picha nyingine.' });
+    }
+
     const image = await prisma.productImage.create({
       data: {
         productId: product.id,
         url: `/api/media/${file.filename}`, // relative; the website adds the API address in front
         storageKey: file.filename,
-        mimeType: mime,
+        mimeType: storedMime,
         position: product._count.images,
       },
       select: { id: true, url: true },

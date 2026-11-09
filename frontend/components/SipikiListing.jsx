@@ -437,9 +437,9 @@ export default function SipikiListing() {
         setProducts(p.data.map((x) => {
           const cat = x.category?.name || "";
           return {
-            id: x.id, title: x.title, vendor: x.vendor?.storeName || "", category: cat,
+            id: x.id, slug: x.slug, title: x.title, vendor: x.vendor?.storeName || "", category: cat,
             emoji: (CATEGORY_META[cat] || DEFAULT_META).emoji, tile: "bg-stone-100",
-            image: imageSrc(x.thumbnail), rating: null, reviews: x.reviewCount, oldPrice: null, badge: null,
+            image: imageSrc(x.thumbnail, 400), rating: null, reviews: x.reviewCount, oldPrice: null, badge: null,
             price: Math.round(x.priceCents / 100), inStock: x.inStock,
           };
         }));
@@ -601,25 +601,28 @@ export default function SipikiListing() {
                 <div className={`relative flex aspect-square items-center justify-center ${product.tile}`}>
                   {product.badge && (
                     <span
-                      className={`absolute left-2 top-2 rounded px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white ${product.badge.cls}`}
+                      className={`pointer-events-none absolute left-2 top-2 z-20 rounded px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white ${product.badge.cls}`}
                     >
                       {product.badge.label}
                     </span>
                   )}
+                  {product.slug && (
+                    <Link href={`/product/${product.slug}`} aria-label={`Tazama ${product.title}`} className="absolute inset-0 z-10" />
+                  )}
                   <button
                     onClick={() => toggleWishlist(product.id)}
-                    className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-white shadow"
+                    className="absolute right-2 top-2 z-20 flex h-7 w-7 items-center justify-center rounded-full bg-white shadow"
                   >
                     <Heart size={14} className={isWished ? "fill-red-500 text-red-500" : "text-slate-400"} />
                   </button>
                   {product.image ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={product.image} alt={product.title} loading="lazy" className="h-full w-full object-cover" />
+                    <img src={product.image} alt={product.title} loading="lazy" className="absolute inset-0 h-full w-full object-cover" />
                   ) : (
                     <span className="text-6xl">{product.emoji}</span>
                   )}
                   {product.inStock === false && (
-                    <span className="absolute bottom-2 left-2 rounded bg-slate-900/80 px-2 py-0.5 text-[10px] font-bold uppercase text-white">Imeisha</span>
+                    <span className="pointer-events-none absolute bottom-2 left-2 z-20 rounded bg-slate-900/80 px-2 py-0.5 text-[10px] font-bold uppercase text-white">Imeisha</span>
                   )}
                 </div>
 
@@ -628,7 +631,9 @@ export default function SipikiListing() {
                     <span className="h-1.5 w-1.5 rounded-full bg-orange-500" />
                     {product.vendor}
                   </p>
-                  <h3 className="mt-1 text-sm font-bold leading-snug text-slate-900">{product.title}</h3>
+                  <h3 className="mt-1 text-sm font-bold leading-snug text-slate-900">
+                    {product.slug ? <Link href={`/product/${product.slug}`} className="hover:text-orange-600">{product.title}</Link> : product.title}
+                  </h3>
                   {product.rating != null && <StarRating rating={product.rating} reviews={product.reviews} />}
 
                   <div className="mt-2 flex flex-1 items-end justify-between">

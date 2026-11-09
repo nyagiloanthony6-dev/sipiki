@@ -17,6 +17,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const multer = require('multer');
+const sharp = require('sharp');
 
 // Where files are stored: UPLOAD_DIR if set, else a folder on the Railway Volume, else a local folder (development).
 const UPLOAD_DIR = path.resolve(
@@ -124,12 +125,53 @@ function imageFilePath(storageKey) {
   return path.join(IMAGES_DIR, storageKey);
 }
 
+// Smaller copies of every photo, so shop pages load fast on mobile data:
+//   <key>      main photo, longest side 1280 px   (product page, zoom)
+//   <key>_800  medium                              (product page)
+//   <key>_400  small                               (shop cards, thumbnails)
+const IMAGE_SIZES = [800, 400];
+const MAIN_SIDE = 1280;
+
+function imageVariantPath(storageKey, width) {
+  if (!IMAGE_SIZES.includes(width)) throw new Error('Invalid image size');
+  return `${imageFilePath(storageKey)}_${width}`;
+}
+
+/**
+ * Decodes the uploaded photo, turns it the right way up, and writes the main photo plus the smaller copies as WebP.
+ * Re-encoding also removes hidden camera data (GPS location, phone model) before the photo becomes public,
+ * and a file that is not really a decodable picture is rejected here (throws).
+ * Returns the MIME type now stored for the main photo.
+ */
+async function processProductImage(storageKey) {
+  const src = imageFilePath(storageKey);
+  const open = () => sharp(src, { limitInputPixels: 40_000_000, failOn: 'error' }).rotate();
+  const written = [];
+  try {
+    for (const width of IMAGE_SIZES) {
+      const out = imageVariantPath(storageKey, width);
+      await open().resize({ width, height: width, fit: 'inside', withoutEnlargement: true }).webp({ quality: 78 }).toFile(out);
+      written.push(out);
+    }
+    const tmp = `${src}.tmp`;
+    await open().resize({ width: MAIN_SIDE, height: MAIN_SIDE, fit: 'inside', withoutEnlargement: true }).webp({ quality: 82 }).toFile(tmp);
+    written.push(tmp);
+    await fs.promises.rename(tmp, src);
+    return 'image/webp';
+  } catch (err) {
+    written.forEach((f) => fs.promises.unlink(f).catch(() => {}));
+    throw err;
+  }
+}
+
 function deleteImageFile(storageKey) {
   if (!/^[a-f0-9]{48}$/.test(storageKey)) return;
-  fs.promises.unlink(path.join(IMAGES_DIR, storageKey)).catch(() => {});
+  for (const f of [storageKey, ...IMAGE_SIZES.map((w) => `${storageKey}_${w}`)]) {
+    fs.promises.unlink(path.join(IMAGES_DIR, f)).catch(() => {});
+  }
 }
 
 module.exports = {
   upload, FIELD_TO_DOC_TYPE, detectMime, deleteStoredFile, storedFilePath,
-  uploadProductImage, detectImageMime, imageFilePath, deleteImageFile,
+  uploadProductImage, detectImageMime, imageFilePath, imageVariantPath, IMAGE_SIZES, processProductImage, deleteImageFile,
 };

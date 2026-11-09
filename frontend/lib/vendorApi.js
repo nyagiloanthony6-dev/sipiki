@@ -21,10 +21,39 @@ export function setVendorToken(token) {
 export const vrequest = (path, options = {}) => request(path, { ...options, token: getVendorToken() });
 
 /** Photos are stored as relative addresses (/api/media/...) — put the API address in front. */
-export function imageSrc(url) {
+export function imageSrc(url, width) {
   if (!url) return null;
-  if (/^https?:\/\//.test(url)) return url;
-  return `${API_URL.replace(/\/api$/, "")}${url}`;
+  const full = /^https?:\/\//.test(url) ? url : `${API_URL.replace(/\/api$/, "")}${url}`;
+  // width 400 or 800 asks the server for a smaller copy (much faster on mobile data)
+  return width ? `${full}?w=${width}` : full;
+}
+
+/**
+ * Looks at a picked photo and returns plain-language warnings (Swahili): too small, or too dark.
+ * Never blocks the upload — the vendor decides. Returns [] if the browser cannot read the file.
+ */
+export async function checkPhoto(file) {
+  try {
+    const bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
+    const warnings = [];
+    if (Math.min(bitmap.width, bitmap.height) < 600) warnings.push("Picha ni ndogo mno — itaonekana ukungu. Piga picha karibu zaidi au tumia kamera ya nyuma.");
+    const size = 48;
+    const canvas = document.createElement("canvas");
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+    ctx.drawImage(bitmap, 0, 0, size, size);
+    bitmap.close?.();
+    const { data } = ctx.getImageData(0, 0, size, size);
+    let sum = 0;
+    for (let i = 0; i < data.length; i += 4) sum += 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+    const avg = sum / (data.length / 4);
+    if (avg < 70) warnings.push("Picha ni giza. Piga karibu na dirisha au nje kwenye mwanga wa mchana.");
+    else if (avg > 252) warnings.push("Picha inaonekana nyeupe karibu yote. Epuka mwanga mkali moja kwa moja kwenye bidhaa.");
+    return warnings;
+  } catch {
+    return [];
+  }
 }
 
 /**

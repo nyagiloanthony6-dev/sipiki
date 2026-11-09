@@ -84,6 +84,12 @@ list products in the categories they registered under. Photos are stored on the 
 (`/data/product-images`, public) so nothing extra needs setting up. The approval SMS links to `/vendor` using `APP_URL` —
 set `APP_URL` to your real website address (the Vercel address until `sipiki.co.tz` is connected).
 
+**Product photos.** On upload the server (using `sharp`) turns the photo the right way up, removes hidden camera data (GPS
+location, phone model), and saves three WebP copies: 1280 px (zoom), 800 px (product page) and 400 px (shop cards).
+`GET /api/media/<key>?w=400|800` returns a smaller copy. The shop cards are square, and each product has a page at
+`/product/<slug>` with a photo gallery, tap-to-zoom and share-preview tags for WhatsApp. The vendor form has a photo guide
+and warns about small or dark photos. Photos uploaded before this change keep working (they have no small copies).
+
 ## Choosing which businesses can register
 In `/admin`, open the **Makundi** tab. Each business category has an on/off switch: the registration form shows only
 the categories that are switched on, and the server refuses applications for closed ones. You can add new categories

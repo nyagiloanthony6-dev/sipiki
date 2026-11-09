@@ -6,7 +6,7 @@ import {
   Eye, EyeOff, ImagePlus, Clock, Ban, XCircle, CheckCircle2, Circle, TrendingUp, Wallet, MapPin, Phone, Mail, FileText,
 } from "lucide-react";
 import { apiConfigured, request } from "../lib/adminApi";
-import { vrequest, getVendorToken, setVendorToken, imageSrc, shrinkImage, uploadProductImage } from "../lib/vendorApi";
+import { vrequest, getVendorToken, setVendorToken, imageSrc, shrinkImage, checkPhoto, uploadProductImage } from "../lib/vendorApi";
 
 // ============================================================================
 // SIPIKI — Vendor portal (/vendor)
@@ -307,7 +307,7 @@ function Dashboard({ me, onSignOut }) {
                   <div className="relative flex aspect-[4/3] items-center justify-center bg-stone-100">
                     {p.images[0] ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={imageSrc(p.images[0].url)} alt={p.title} className="h-full w-full object-cover" />
+                      <img src={imageSrc(p.images[0].url, 400)} alt={p.title} className="absolute inset-0 h-full w-full object-cover" />
                     ) : <Package size={36} className="text-stone-300" />}
                     <span className={`absolute left-2 top-2 rounded-full px-2.5 py-0.5 text-[11px] font-bold ${p.isActive ? "bg-emerald-100 text-emerald-800" : "bg-slate-200 text-slate-600"}`}>
                       {p.isActive ? "Inaonekana" : "Imefichwa"}
@@ -470,7 +470,7 @@ function ProductEditor({ product, categories, onClose, onSaved, onAuthError }) {
   });
   const [existing, setExisting] = useState(product?.images || []); // photos already saved
   const [removed, setRemoved] = useState([]);                      // saved photos to delete on save
-  const [added, setAdded] = useState([]);                          // { file, preview } picked now
+  const [added, setAdded] = useState([]);                          // { file, preview, warnings } picked now
   const [errors, setErrors] = useState({});
   const [formError, setFormError] = useState("");
   const [saving, setSaving] = useState(false);
@@ -485,7 +485,12 @@ function ProductEditor({ product, categories, onClose, onSaved, onAuthError }) {
     const files = [...e.target.files].filter((f) => /^image\/(jpeg|png|webp)$/.test(f.type));
     e.target.value = "";
     const room = MAX_PHOTOS - photoCount;
-    setAdded((prev) => [...prev, ...files.slice(0, Math.max(0, room)).map((file) => ({ file, preview: URL.createObjectURL(file) }))]);
+    const picked = files.slice(0, Math.max(0, room)).map((file) => ({ file, preview: URL.createObjectURL(file), warnings: [] }));
+    setAdded((prev) => [...prev, ...picked]);
+    // check quality in the background and attach any warnings to each photo
+    picked.forEach((a) => checkPhoto(a.file).then((warnings) => {
+      if (warnings.length) setAdded((prev) => prev.map((x) => (x.preview === a.preview ? { ...x, warnings } : x)));
+    }));
     if (files.length > room) setFormError(`Unaweza kuweka picha ${MAX_PHOTOS} tu kwa kila bidhaa.`);
   }
 
@@ -589,7 +594,7 @@ function ProductEditor({ product, categories, onClose, onSaved, onAuthError }) {
             {existing.map((img) => (
               <div key={img.id} className="relative h-20 w-20 overflow-hidden rounded-xl border border-stone-200">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={imageSrc(img.url)} alt="" className="h-full w-full object-cover" />
+                <img src={imageSrc(img.url, 400)} alt="" className="h-full w-full object-cover" />
                 <button type="button" aria-label="Ondoa picha" onClick={() => { setExisting((x) => x.filter((i) => i.id !== img.id)); setRemoved((r) => [...r, img]); }} className="absolute right-1 top-1 rounded-full bg-slate-900/80 p-0.5 text-white"><X size={13} /></button>
               </div>
             ))}
@@ -607,7 +612,22 @@ function ProductEditor({ product, categories, onClose, onSaved, onAuthError }) {
               </label>
             )}
           </div>
+          {added.some((a) => a.warnings.length > 0) && (
+            <ul className="mt-2 space-y-1 rounded-xl bg-amber-50 p-3 text-xs text-amber-800">
+              {added.map((a, i) => a.warnings.map((w) => <li key={`${a.preview}-${w}`}>Picha {existing.length + i + 1}: {w}</li>))}
+            </ul>
+          )}
           <p className="mt-1 text-xs text-slate-400">Picha ya kwanza ndiyo inayoonekana kwenye orodha. Picha hupunguzwa ukubwa kiotomatiki.</p>
+          <details className="mt-2 rounded-xl border border-orange-200 bg-orange-50/60 p-3 text-xs text-slate-700">
+            <summary className="cursor-pointer font-bold text-orange-700">Jinsi ya kupiga picha nzuri ya bidhaa</summary>
+            <ul className="mt-2 list-disc space-y-1 pl-4">
+              <li><b>Mwanga:</b> piga karibu na dirisha au nje wakati wa mchana. Usitumie flash, na mwanga usiwe nyuma ya bidhaa.</li>
+              <li><b>Mandhari:</b> weka bidhaa juu ya shuka jeupe, ukuta mweupe au meza safi. Ondoa vitu vingine.</li>
+              <li><b>Picha 3–4:</b> ya kwanza ionyeshe bidhaa nzima mbele. Zingine: upande, nyuma, karibu kuonyesha ubora, na ikitumika.</li>
+              <li><b>Ukubwa:</b> bidhaa ijaze sehemu kubwa ya picha. Shika simu wima na usafishe kioo cha kamera.</li>
+              <li><b>Ukweli:</b> picha ionyeshe bidhaa halisi unayouza — wateja wanaamini na hawarudishi.</li>
+            </ul>
+          </details>
         </div>
 
         <label className="mt-4 flex cursor-pointer items-center gap-2 text-sm font-semibold text-slate-800">
