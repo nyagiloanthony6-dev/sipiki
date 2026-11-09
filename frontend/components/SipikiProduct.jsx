@@ -1,9 +1,11 @@
 "use client";
 import Link from "next/link";
 import { useEffect, useState, useCallback } from "react";
-import { ArrowLeft, ChevronLeft, ChevronRight, X, Store, Tag, ZoomIn, Loader2, PackageX } from "lucide-react";
+import { ArrowLeft, ChevronLeft, ChevronRight, X, Store, Tag, ZoomIn, Loader2, PackageX, ShoppingCart, Check } from "lucide-react";
 import { API_URL, request } from "../lib/adminApi";
 import { imageSrc } from "../lib/vendorApi";
+import { useCart } from "../lib/cart";
+import { CartDrawer, TrackModal } from "./SipikiCheckout";
 
 // ============================================================================
 // SIPIKI — product page: photo gallery (thumbnails, arrows, tap to zoom), price,
@@ -66,6 +68,10 @@ export default function SipikiProduct({ slug }) {
   const [product, setProduct] = useState(null);
   const [index, setIndex] = useState(0);
   const [zoomOpen, setZoomOpen] = useState(false);
+  const cart = useCart();
+  const [cartOpen, setCartOpen] = useState(false);
+  const [track, setTrack] = useState(null);
+  const [justAdded, setJustAdded] = useState(false);
 
   useEffect(() => {
     if (!API_URL) return undefined;
@@ -80,12 +86,24 @@ export default function SipikiProduct({ slug }) {
   const images = product?.images || [];
   const inStock = (product?.stockQuantity ?? 0) > 0;
 
+  function addToCart(openCart) {
+    cart.add({
+      id: product.id, title: product.title, price: Math.round(product.priceCents / 100),
+      image: images[0] ? imageSrc(images[0].url, 400) : null, vendor: product.vendor?.storeName, slug: product.slug,
+    });
+    if (openCart) setCartOpen(true);
+    else { setJustAdded(true); setTimeout(() => setJustAdded(false), 1800); }
+  }
+
   return (
     <div className="min-h-screen bg-stone-50 text-slate-800">
       <header className="border-b border-stone-200 bg-white">
         <div className="mx-auto flex max-w-5xl items-center gap-3 px-4 py-3">
           <Link href="/" className="flex items-center gap-1.5 text-sm font-bold text-orange-600 hover:text-orange-700"><ArrowLeft size={17} /> Rudi dukani</Link>
           <span className="ml-auto text-lg font-extrabold tracking-tight text-slate-900">SIPIKI</span>
+          <button onClick={() => setCartOpen(true)} aria-label="Kikapu" className="flex items-center gap-1.5 rounded-full border border-stone-300 px-3.5 py-1.5 text-sm font-semibold text-slate-700 hover:border-slate-500">
+            <ShoppingCart size={15} /> {cart.count}
+          </button>
         </div>
       </header>
 
@@ -149,12 +167,22 @@ export default function SipikiProduct({ slug }) {
                   <p className="mt-1 whitespace-pre-line text-sm leading-relaxed text-slate-600">{product.description}</p>
                 </div>
               )}
-              <p className="mt-6 rounded-xl bg-amber-50 p-3 text-xs text-amber-800">Kuagiza kupitia Sipiki kutafunguliwa hivi karibuni. Kwa sasa unaweza kutazama bidhaa na bei.</p>
+              <div className="mt-6 flex flex-col gap-2 sm:flex-row">
+                <button onClick={() => addToCart(true)} disabled={!inStock} className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-orange-600 py-3 text-sm font-bold text-white hover:bg-orange-700 disabled:cursor-not-allowed disabled:opacity-50">
+                  Agiza Sasa
+                </button>
+                <button onClick={() => addToCart(false)} disabled={!inStock} className="flex flex-1 items-center justify-center gap-2 rounded-xl border-2 border-orange-300 py-3 text-sm font-bold text-orange-700 hover:bg-orange-50 disabled:cursor-not-allowed disabled:opacity-50">
+                  {justAdded ? <><Check size={16} /> Imewekwa</> : <><ShoppingCart size={16} /> Weka Kikapuni</>}
+                </button>
+              </div>
+              <p className="mt-3 text-xs text-slate-500">Weka namba ya simu na eneo ulipo tu — hakuna akaunti. Unalipa unapopokea bidhaa.</p>
             </div>
           </div>
         )}
       </main>
 
+      <CartDrawer open={cartOpen} onClose={() => setCartOpen(false)} cart={cart} onTrack={(init) => setTrack(init || {})} />
+      <TrackModal open={Boolean(track)} initial={track} onClose={() => setTrack(null)} />
       {zoomOpen && images.length > 0 && <Lightbox images={images} index={index} setIndex={setIndex} title={product.title} onClose={() => setZoomOpen(false)} />}
     </div>
   );

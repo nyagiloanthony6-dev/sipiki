@@ -26,6 +26,15 @@ const TEMPLATES = {
   suspended: ({ name, reason }) =>
     `Sipiki: Akaunti ya ${name} imesimamishwa. Sababu: ${reason}. Wasiliana nasi kwa msaada.`,
   reactivated: ({ name }) => `Sipiki: Akaunti ya ${name} imerudishwa. Unaweza kuendelea kuuza.`,
+  // ---- orders ----
+  order_placed: ({ ref, total }) =>
+    `Sipiki: Oda yako ${ref} imepokelewa (TSh ${total}). Muuzaji atakupigia kupanga uwasilishaji. Malipo ni unapopokea.`,
+  new_order: ({ name, ref, count, total, customer }) =>
+    `Sipiki: ${name}, una oda mpya ${ref} (bidhaa ${count}, TSh ${total}). Mteja: ${customer}. Ingia kwenye /vendor kuthibitisha.`,
+  order_processing: ({ ref, store }) => `Sipiki: Oda ${ref} imethibitishwa na ${store}. Wanaiandaa sasa.`,
+  order_shipped: ({ ref, store }) => `Sipiki: Oda ${ref} kutoka ${store} iko njiani kwako.`,
+  order_delivered: ({ ref }) => `Sipiki: Oda ${ref} imewasilishwa. Asante kwa kununua kupitia Sipiki!`,
+  order_cancelled: ({ ref, store }) => `Sipiki: Samahani, oda ${ref} imeghairiwa na ${store}. Tafadhali wasiliana nao kwa maelezo.`,
 };
 
 async function sendViaBeem(toPhone, message) {

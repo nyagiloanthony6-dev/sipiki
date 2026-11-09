@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import { REGIONS } from "../lib/regions";
 import { useState, useEffect } from "react";
 import {
   Store, User, Wallet, FileText, Check, ChevronLeft, ChevronRight, Upload, ShieldCheck,
@@ -13,12 +14,6 @@ import {
 // An admin then approves/rejects it from the admin dashboard.
 // ============================================================================
 
-const REGIONS = [
-  "Arusha", "Dar es Salaam", "Dodoma", "Geita", "Iringa", "Kagera", "Katavi", "Kigoma", "Kilimanjaro",
-  "Lindi", "Manyara", "Mara", "Mbeya", "Morogoro", "Mtwara", "Mwanza", "Njombe", "Pemba Kaskazini",
-  "Pemba Kusini", "Pwani", "Rukwa", "Ruvuma", "Shinyanga", "Simiyu", "Singida", "Songwe", "Tabora",
-  "Tanga", "Unguja Kaskazini", "Unguja Kusini", "Unguja Mjini Magharibi",
-];
 
 const BUSINESS_TYPES = ["Mtu Binafsi", "Kampuni (Ltd)", "Ushirika / Kikundi"];
 

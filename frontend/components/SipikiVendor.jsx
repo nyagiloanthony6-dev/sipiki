@@ -255,7 +255,7 @@ function Dashboard({ me, onSignOut }) {
   const tabs = [
     { key: "overview", label: "Muhtasari", icon: LayoutDashboard },
     { key: "products", label: "Bidhaa", icon: Package, count: products.length },
-    { key: "orders", label: "Maagizo", icon: ClipboardList },
+    { key: "orders", label: "Maagizo", icon: ClipboardList, count: summary?.newOrders || 0 },
     { key: "profile", label: "Wasifu", icon: Store },
   ];
   const nav = (
@@ -333,16 +333,7 @@ function Dashboard({ me, onSignOut }) {
         </div>
       )}
 
-      {!loading && tab === "orders" && (
-        <div>
-          <h1 className="text-2xl font-extrabold text-slate-900">Maagizo</h1>
-          <div className="mt-5 rounded-2xl border border-dashed border-stone-300 bg-white py-16 text-center">
-            <ClipboardList size={34} className="mx-auto mb-2 text-stone-400" />
-            <p className="font-bold text-slate-700">Hakuna maagizo bado</p>
-            <p className="mx-auto max-w-sm text-sm text-slate-400">Maagizo ya wateja yataonekana hapa. Ununuzi na malipo ya M-Pesa, Tigo Pesa na Airtel Money bado haujafunguliwa.</p>
-          </div>
-        </div>
-      )}
+      {!loading && tab === "orders" && <OrdersTab onAuthError={authFailed} onChanged={load} notify={notify} />}
 
       {!loading && tab === "profile" && <Profile me={me} />}
 
@@ -372,6 +363,124 @@ function Dashboard({ me, onSignOut }) {
 
       {toast && <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-full bg-slate-900 px-5 py-2.5 text-sm font-medium text-white shadow-lg">{toast}</div>}
     </Shell>
+  );
+}
+
+// ---- orders (customers' orders for this seller's products) --------------------------
+
+const ORDER_STATUS = {
+  pending: ["Mpya — inasubiri uthibitisho", "bg-amber-100 text-amber-800"],
+  processing: ["Inaandaliwa", "bg-sky-100 text-sky-800"],
+  shipped: ["Imetumwa", "bg-indigo-100 text-indigo-800"],
+  delivered: ["Imewasilishwa", "bg-emerald-100 text-emerald-800"],
+  cancelled: ["Imeghairiwa", "bg-slate-200 text-slate-600"],
+};
+// the next step the seller can take, and the label of the button
+const ORDER_NEXT = {
+  pending: { status: "processing", label: "Thibitisha Oda", cls: "bg-emerald-600 hover:bg-emerald-700" },
+  processing: { status: "shipped", label: "Imetumwa", cls: "bg-indigo-600 hover:bg-indigo-700" },
+  shipped: { status: "delivered", label: "Imewasilishwa", cls: "bg-emerald-600 hover:bg-emerald-700" },
+};
+
+function OrdersTab({ onAuthError, onChanged, notify }) {
+  const [orders, setOrders] = useState(null); // null = loading
+  const [error, setError] = useState("");
+  const [busyId, setBusyId] = useState(null);
+  const [confirmCancel, setConfirmCancel] = useState(null);
+
+  const load = useCallback(async () => {
+    try {
+      const r = await vrequest("/vendors/me/orders");
+      setOrders(r.data);
+      setError("");
+    } catch (err) {
+      if (!onAuthError(err)) { setError(err.message); setOrders((o) => o || []); }
+    }
+  }, [onAuthError]);
+  useEffect(() => { load(); }, [load]);
+
+  async function change(o, status) {
+    if (busyId) return;
+    setBusyId(o.id);
+    try {
+      await vrequest(`/vendors/me/orders/${o.id}/status`, { method: "PATCH", body: { status } });
+      notify(status === "cancelled" ? `Oda ${o.ref} imeghairiwa — bidhaa zimerudishwa kwenye stoo` : `Oda ${o.ref}: mteja ametumiwa SMS`);
+      setConfirmCancel(null);
+      await load();
+      onChanged();
+    } catch (err) {
+      if (!onAuthError(err)) { notify(err.status === 409 ? "Hali ya oda imebadilika tayari. Orodha imesasishwa." : err.message); if (err.status === 409) await load(); }
+    } finally { setBusyId(null); }
+  }
+
+  const when = (iso) => new Date(iso).toLocaleString("sw-TZ", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+
+  return (
+    <div>
+      <h1 className="text-2xl font-extrabold text-slate-900">Maagizo</h1>
+      <p className="text-sm text-slate-500">Wateja wanalipa unapowasilisha bidhaa. Mpigie mteja kupanga uwasilishaji, kisha sasisha hali ya oda.</p>
+      {error && <p role="alert" className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error} <button onClick={load} className="font-bold underline">Jaribu tena</button></p>}
+      {orders === null && <div className="flex justify-center py-16 text-slate-400"><Loader2 className="animate-spin" /></div>}
+      {orders && orders.length === 0 && !error && (
+        <div className="mt-5 rounded-2xl border border-dashed border-stone-300 bg-white py-16 text-center">
+          <ClipboardList size={34} className="mx-auto mb-2 text-stone-400" />
+          <p className="font-bold text-slate-700">Hakuna maagizo bado</p>
+          <p className="mx-auto max-w-sm text-sm text-slate-400">Mteja akiagiza bidhaa yako, oda itaonekana hapa na utapokea SMS.</p>
+        </div>
+      )}
+      <ul className="mt-5 space-y-4">
+        {(orders || []).map((o) => {
+          const [label, cls] = ORDER_STATUS[o.status] || ORDER_STATUS.pending;
+          const next = ORDER_NEXT[o.status];
+          const canCancel = o.status === "pending" || o.status === "processing";
+          return (
+            <li key={o.id} className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm" data-testid="order-card">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <p className="font-mono text-base font-extrabold text-slate-900">{o.ref}</p>
+                  <p className="text-xs text-slate-400">{when(o.createdAt)}</p>
+                </div>
+                <span className={`rounded-full px-3 py-1 text-xs font-bold ${cls}`}>{label}</span>
+              </div>
+
+              <div className="mt-3 grid gap-3 rounded-xl bg-stone-50 p-3 text-sm sm:grid-cols-2">
+                <div className="flex items-start gap-2"><Phone size={15} className="mt-0.5 flex-shrink-0 text-slate-400" />
+                  <div><p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Mteja</p>
+                    <p className="font-semibold text-slate-800">{o.customer.name || "Hajaandika jina"}</p>
+                    <a href={`tel:+${o.customer.phone}`} className="font-bold text-sky-700 hover:underline">+{o.customer.phone}</a></div></div>
+                <div className="flex items-start gap-2"><MapPin size={15} className="mt-0.5 flex-shrink-0 text-slate-400" />
+                  <div><p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Uwasilishaji</p>
+                    <p className="font-semibold text-slate-800">{o.delivery.location}</p>
+                    <p className="text-slate-500">{o.delivery.region}</p></div></div>
+              </div>
+              {o.delivery.notes && <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">Maelezo ya mteja: {o.delivery.notes}</p>}
+
+              <ul className="mt-3 divide-y divide-stone-100 text-sm">
+                {o.items.map((i, n) => (
+                  <li key={n} className="flex justify-between gap-3 py-1.5"><span className="min-w-0 truncate">{i.quantity} × {i.title}</span><span className="flex-shrink-0 font-semibold">{fmt(i.subtotalTsh)}</span></li>
+                ))}
+                <li className="flex justify-between pt-2 font-extrabold text-slate-900"><span>Jumla ya kukusanya</span><span>{fmt(o.subtotalTsh)}</span></li>
+              </ul>
+
+              {(next || canCancel) && (
+                <div className="mt-4 flex flex-col gap-2 border-t border-stone-100 pt-4 sm:flex-row">
+                  {next && (
+                    <button onClick={() => change(o, next.status)} disabled={busyId === o.id} className={`flex flex-1 items-center justify-center rounded-xl py-2.5 text-sm font-bold text-white disabled:opacity-60 ${next.cls}`}>
+                      {busyId === o.id ? <Loader2 size={16} className="animate-spin" /> : next.label}
+                    </button>
+                  )}
+                  {canCancel && (confirmCancel === o.id ? (
+                    <button onClick={() => change(o, "cancelled")} disabled={busyId === o.id} className="flex-1 rounded-xl bg-red-600 py-2.5 text-sm font-bold text-white hover:bg-red-700 disabled:opacity-60">Ndiyo, ghairi oda</button>
+                  ) : (
+                    <button onClick={() => setConfirmCancel(o.id)} className="flex-1 rounded-xl border-2 border-red-200 py-2.5 text-sm font-bold text-red-600 hover:bg-red-50">Ghairi</button>
+                  ))}
+                </div>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    </div>
   );
 }
 
@@ -406,7 +515,7 @@ function Overview({ me, summary, products, onAdd }) {
       </div>
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         {stat(Package, "Bidhaa", summary?.products ?? 0, `${summary?.activeProducts ?? 0} zinaonekana dukani`, "bg-sky-100 text-sky-700")}
-        {stat(ClipboardList, "Maagizo", summary?.ordersCount ?? 0, "Yaliyolipwa", "bg-amber-100 text-amber-700")}
+        {stat(ClipboardList, "Maagizo", summary?.ordersCount ?? 0, summary?.newOrders ? `${summary.newOrders} mapya yanasubiri` : "Yaliyothibitishwa", "bg-amber-100 text-amber-700")}
         {stat(TrendingUp, "Mauzo", fmt(summary?.salesTsh), "Jumla", "bg-emerald-100 text-emerald-700")}
         {stat(Wallet, "Malipo", me.payoutProvider || "—", me.payoutPhone || "", "bg-orange-100 text-orange-700")}
       </div>

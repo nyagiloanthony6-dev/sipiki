@@ -107,3 +107,22 @@ there too. Closing every category closes registration completely. Vendors who re
 cd backend  && cp .env.example .env && npm install && npm run db:setup && npm run dev   # http://localhost:4000
 cd frontend && cp .env.example .env.local && npm install && npm run dev                 # http://localhost:3000
 ```
+
+
+## Customer orders (guest checkout)
+
+Customers need **no account**. They add products to a cart (kept in the browser), then enter a **phone number and delivery
+location** (region, area, optional name and note) and press "Tuma Oda". Payment is **on delivery** for now (cash or mobile
+money paid to the seller) — `payment_method = 'on_delivery'`, so online payment can be added later without changing orders.
+
+- `POST /api/orders` — places the order. Prices and stock are read from the database (never trusted from the browser); stock is
+  taken in the same transaction with a conditional update, so two buyers can never get the last item. One order can contain
+  several sellers' products; each seller only sees their own items. Order numbers look like `SPK-7K3M9Q`.
+- `POST /api/orders/track` — the customer finds an order with the order number **and** the phone number used. Wrong either way
+  gives the same "not found".
+- `GET /api/vendors/me/orders`, `PATCH /api/vendors/me/orders/:orderId/status` — the seller's **Maagizo** tab: confirm
+  → shipped → delivered, or cancel (stock goes back). The customer gets an SMS at each step.
+- SMS (Beem) goes to the customer when the order is placed, to each seller about their new order, and to the customer on each
+  status change. Set `SMS_PROVIDER=beem` and the Beem keys; otherwise messages are printed in the Railway log.
+- `platform_fee_cents` is 0 for now — decide the commission before real payouts.
+- Migration `005_guest_orders.sql` makes `orders.user_id` optional and adds order number, customer name/phone and payment method.

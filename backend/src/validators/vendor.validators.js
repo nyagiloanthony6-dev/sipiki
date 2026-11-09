@@ -88,4 +88,4 @@ const reasonSchema = z.object({
   reason: z.string().trim().min(5, 'Eleza sababu kwa ufupi').max(300),
 });
 
-module.exports = { vendorRegistrationSchema, loginSchema, customerRegistrationSchema, reasonSchema };
+module.exports = { REGIONS, vendorRegistrationSchema, loginSchema, customerRegistrationSchema, reasonSchema };

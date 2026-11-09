@@ -4,6 +4,8 @@ import { useState, useMemo, useEffect, useCallback } from "react";
 import { Search, ChevronDown, Heart, Plus, Minus, X, ShoppingCart, Home, Package, LayoutDashboard, ShieldCheck, Star, ChevronLeft, ChevronRight, ArrowRight, MapPin, Phone, Mail, Truck, ShieldCheck as Shield, Headphones, RotateCcw } from "lucide-react";
 import { API_URL, request } from "../lib/adminApi";
 import { imageSrc } from "../lib/vendorApi";
+import { useCart } from "../lib/cart";
+import { CartDrawer, TrackModal } from "./SipikiCheckout";
 
 // ============================================================================
 // SAMPLE CATALOG (demo mode only) — general Tanzanian marketplace listing (Jumia/Kilimall-style)
@@ -416,7 +418,8 @@ function NavPill({ icon: Icon, emoji, label, className, href, onClick }) {
 export default function SipikiListing() {
   const [category, setCategory] = useState("Makundi Yote");
   const [search, setSearch] = useState("");
-  const [cart, setCart] = useState([]); // { productId, quantity }
+  const cart = useCart(); // kept in the browser, shared with the product page
+  const [track, setTrack] = useState(null); // null = closed; { ref, phone } pre-fills the lookup
   const [wishlist, setWishlist] = useState([]);
   const [cartOpen, setCartOpen] = useState(false);
 
@@ -468,35 +471,15 @@ export default function SipikiListing() {
     });
   }, [category, search, products]);
 
-  // ---- Cart logic — mirrors backend cart.controller.js: addItem increments
-  // an existing line, updateItemQuantity <=0 removes it ------------------
   function addToCart(product) {
-    setCart((prev) => {
-      const existing = prev.find((i) => i.productId === product.id);
-      if (existing) {
-        return prev.map((i) => (i.productId === product.id ? { ...i, quantity: i.quantity + 1 } : i));
-      }
-      return [...prev, { productId: product.id, quantity: 1 }];
-    });
-  }
-
-  function updateQuantity(productId, quantity) {
-    setCart((prev) =>
-      quantity <= 0
-        ? prev.filter((i) => i.productId !== productId)
-        : prev.map((i) => (i.productId === productId ? { ...i, quantity } : i))
-    );
+    cart.add({ id: product.id, title: product.title, price: product.price, image: product.image, vendor: product.vendor, slug: product.slug, emoji: product.emoji });
   }
 
   function toggleWishlist(productId) {
     setWishlist((prev) => (prev.includes(productId) ? prev.filter((id) => id !== productId) : [...prev, productId]));
   }
 
-  const cartLines = cart
-    .map((line) => ({ ...line, product: products.find((p) => p.id === line.productId) }))
-    .filter((line) => line.product);
-  const itemCount = cartLines.reduce((s, l) => s + l.quantity, 0);
-  const subtotal = cartLines.reduce((s, l) => s + l.product.price * l.quantity, 0);
+  const itemCount = cart.count;
 
   return (
     <div className="min-h-screen bg-orange-50/40" style={{ fontFamily: "'Segoe UI', system-ui, sans-serif" }}>
@@ -512,7 +495,7 @@ export default function SipikiListing() {
 
           <div className="flex flex-wrap items-center gap-2">
             <NavPill href="/" emoji="🏠" label="Nyumbani" className="bg-orange-600 text-white hover:bg-orange-500" />
-            <NavPill onClick={() => comingSoon("Maagizo yatapatikana punde — akaunti za wateja bado hazijafunguliwa.")} emoji="📦" label="Maagizo" className="bg-purple-600 text-white hover:bg-purple-500" />
+            <NavPill onClick={() => (API_URL ? setTrack({}) : comingSoon("Toleo la majaribio — ufuatiliaji wa oda hauko wazi."))} emoji="📦" label="Maagizo" className="bg-purple-600 text-white hover:bg-purple-500" />
             <NavPill href="/vendor" icon={LayoutDashboard} label="Dashboard" className="border border-slate-600 text-slate-200 hover:border-slate-400" />
             <NavPill href="/admin" icon={ShieldCheck} label="Admin" className="bg-sky-700 text-white hover:bg-sky-600" />
             <button
@@ -590,7 +573,7 @@ export default function SipikiListing() {
 
         <div className="grid grid-cols-4 gap-3 sm:gap-5">
           {filtered.map((product) => {
-            const inCart = cart.find((i) => i.productId === product.id);
+            const inCart = cart.lines.find((i) => i.productId === product.id);
             const isWished = wishlist.includes(product.id);
 
             return (
@@ -685,70 +668,8 @@ export default function SipikiListing() {
       {/* ---------------- Footer ---------------- */}
       <Footer onSelectCategory={setCategory} categories={categories} />
 
-      {/* ---------------- Cart drawer ---------------- */}
-      {cartOpen && (
-        <div className="fixed inset-0 z-40 flex justify-end">
-          <div className="absolute inset-0 bg-slate-900/40" onClick={() => setCartOpen(false)} />
-          <div className="relative flex h-full w-full max-w-sm flex-col bg-white shadow-2xl">
-            <div className="flex items-center justify-between bg-slate-900 px-5 py-4">
-              <h2 className="text-lg font-semibold text-white">Kikapu Chako</h2>
-              <button onClick={() => setCartOpen(false)} className="text-slate-400 hover:text-white">
-                <X size={20} />
-              </button>
-            </div>
-
-            <div className="flex-1 overflow-y-auto px-5 py-4">
-              {cartLines.length === 0 ? (
-                <div className="flex h-full flex-col items-center justify-center text-center text-slate-400">
-                  <ShoppingCart size={32} className="mb-2" />
-                  <p className="text-sm">Kikapu chako kiko tupu.</p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {cartLines.map((line) => (
-                    <div key={line.productId} className="flex items-center gap-3 rounded-lg border border-stone-200 p-2.5">
-                      <div className={`flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-lg ${line.product.tile}`}>
-                        <span className="text-2xl">{line.product.emoji}</span>
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium text-slate-900">{line.product.title}</p>
-                        <p className="text-xs text-orange-600">{formatPrice(line.product.price)}</p>
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <button
-                          onClick={() => updateQuantity(line.productId, line.quantity - 1)}
-                          className="flex h-6 w-6 items-center justify-center rounded-full border border-stone-300 text-slate-600"
-                        >
-                          <Minus size={11} />
-                        </button>
-                        <span className="w-4 text-center text-sm">{line.quantity}</span>
-                        <button
-                          onClick={() => updateQuantity(line.productId, line.quantity + 1)}
-                          className="flex h-6 w-6 items-center justify-center rounded-full border border-stone-300 text-slate-600"
-                        >
-                          <Plus size={11} />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {cartLines.length > 0 && (
-              <div className="border-t border-stone-200 px-5 py-4">
-                <div className="mb-3 flex items-center justify-between text-sm">
-                  <span className="text-slate-500">Jumla</span>
-                  <span className="text-base font-bold text-slate-900">{formatPrice(subtotal)}</span>
-                </div>
-                <button className="w-full rounded-lg bg-orange-600 py-2.5 text-sm font-semibold text-white hover:bg-orange-700">
-                  Endelea na Malipo
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+      <CartDrawer open={cartOpen} onClose={() => setCartOpen(false)} cart={cart} onTrack={(init) => setTrack(init || {})} />
+      <TrackModal open={Boolean(track)} initial={track} onClose={() => setTrack(null)} />
     </div>
   );
 }

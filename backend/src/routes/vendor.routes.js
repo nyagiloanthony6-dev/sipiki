@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { handleUpload, registerVendor, listCategories } = require('../controllers/vendor.controller');
 const portal = require('../controllers/vendorPortal.controller');
+const orders = require('../controllers/order.controller');
 const { authenticate } = require('../middleware/auth.middleware');
 const { requireRole } = require('../middleware/role.middleware');
 const { registerLimiter, portalWriteLimiter } = require('../middleware/rateLimit.middleware');
@@ -10,6 +11,7 @@ const { registerLimiter, portalWriteLimiter } = require('../middleware/rateLimit
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const badId = (res) => res.status(400).json({ error: 'Kitambulisho si sahihi' });
 router.param('id', (req, res, next, id) => (UUID.test(id) ? next() : badId(res)));
+router.param('orderId', (req, res, next, id) => (UUID.test(id) ? next() : badId(res)));
 router.param('imageId', (req, res, next, id) => (UUID.test(id) ? next() : badId(res)));
 
 // ---- public ---------------------------------------------------------------
@@ -31,5 +33,7 @@ router.patch('/me/products/:id', ...vendorOnly, portalWriteLimiter, portal.updat
 router.delete('/me/products/:id', ...vendorOnly, portalWriteLimiter, portal.deleteProduct);
 router.post('/me/products/:id/images', ...vendorOnly, portalWriteLimiter, portal.handleImageUpload, portal.addImage);
 router.delete('/me/products/:id/images/:imageId', ...vendorOnly, portalWriteLimiter, portal.deleteImage);
+router.get('/me/orders', ...vendorOnly, orders.listVendorOrders);
+router.patch('/me/orders/:orderId/status', ...vendorOnly, portalWriteLimiter, orders.updateVendorOrderStatus);
 
 module.exports = router;

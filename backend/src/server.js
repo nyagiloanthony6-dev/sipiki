@@ -32,7 +32,7 @@ const adminRoutes = require('./routes/admin.routes');
 const productRoutes = require('./routes/product.routes');
 const cartRoutes = require('./routes/cart.routes');
 const mediaRoutes = require('./routes/media.routes');
-// const orderRoutes = require('./routes/order.routes');
+const orderRoutes = require('./routes/order.routes');
 // const webhookRoutes = require('./routes/webhook.routes'); // must use express.raw() for payment-provider signature verification
 
 const app = express();
@@ -60,7 +60,7 @@ app.use('/api/admin', adminRoutes);      // admin-only (token + DB-verified role
 app.use('/api/products', productRoutes);
 app.use('/api/cart', cartRoutes);
 app.use('/api/media', mediaRoutes);       // public product photos
-// app.use('/api/orders', orderRoutes);
+app.use('/api/orders', orderRoutes);      // guest checkout + order tracking
 
 app.get('/health', (req, res) => res.json({ status: 'ok' }));
 

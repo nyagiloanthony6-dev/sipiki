@@ -116,14 +116,15 @@ async function getSummary(req, res) {
     const vendor = await myVendor(req, res);
     if (!vendor) return;
     const own = { vendorId: vendor.id, deletedAt: null };
-    const [products, activeProducts, sales, orders] = await Promise.all([
+    const [products, activeProducts, sales, orders, newOrders] = await Promise.all([
       prisma.product.count({ where: own }),
       prisma.product.count({ where: { ...own, isActive: true } }),
       prisma.orderItem.aggregate({ _sum: { subtotalCents: true }, where: { vendorId: vendor.id, order: { status: { in: SALE_STATUSES } } } }),
       prisma.orderItem.count({ where: { vendorId: vendor.id, order: { status: { in: SALE_STATUSES } } } }),
+      prisma.orderItem.count({ where: { vendorId: vendor.id, fulfillmentStatus: 'pending' } }),
     ]);
     res.json({
-      products, activeProducts, ordersCount: orders,
+      products, activeProducts, ordersCount: orders, newOrders,
       salesTsh: Math.round((sales._sum.subtotalCents ?? 0) / 100),
     });
   } catch (err) {

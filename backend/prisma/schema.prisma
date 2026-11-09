@@ -258,17 +258,21 @@ model CartItem {
 
 model Order {
   id               String      @id @default(uuid()) @db.Uuid
-  userId           String      @map("user_id") @db.Uuid
+  userId           String?     @map("user_id") @db.Uuid
+  orderRef         String?     @unique @map("order_ref") @db.VarChar(20)
+  customerName     String?     @map("customer_name") @db.VarChar(100)
+  customerPhone    String?     @map("customer_phone") @db.VarChar(15)
+  paymentMethod    String      @default("on_delivery") @map("payment_method") @db.VarChar(20)
   status           OrderStatus @default(pending)
   subtotalCents    Int         @map("subtotal_cents")
   platformFeeCents Int         @default(0) @map("platform_fee_cents")
   totalCents       Int         @map("total_cents")
-  currency         String      @default("USD") @db.Char(3)
+  currency         String      @default("TZS") @db.Char(3)
   shippingAddress  Json        @map("shipping_address")
   createdAt        DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt        DateTime    @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  user         User           @relation(fields: [userId], references: [id])
+  user         User?          @relation(fields: [userId], references: [id])
   items        OrderItem[]
   transactions Transaction[]
   payouts      VendorPayout[]
@@ -281,6 +285,7 @@ model OrderItem {
   orderId           String      @map("order_id") @db.Uuid
   productId         String      @map("product_id") @db.Uuid
   vendorId          String      @map("vendor_id") @db.Uuid
+  productTitle      String?     @map("product_title") @db.VarChar(255)
   quantity          Int
   unitPriceCents    Int         @map("unit_price_cents")
   subtotalCents     Int         @map("subtotal_cents")
