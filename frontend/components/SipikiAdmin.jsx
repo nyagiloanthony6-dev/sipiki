@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import { Wordmark, MadeBy } from "./Brand";
 import { useState, useMemo, useEffect, useCallback } from "react";
 import {
   LayoutDashboard, ClipboardCheck, Store, Search, X, Check, FileText, Phone, Mail, MapPin,
@@ -234,7 +235,7 @@ function LoginScreen({ onSignedIn, notice }) {
     <div className="flex min-h-screen items-center justify-center bg-slate-900 px-4" style={{ fontFamily: "'Segoe UI', system-ui, sans-serif" }}>
       <form onSubmit={submit} className="w-full max-w-sm rounded-2xl bg-white p-7 shadow-2xl">
         <div className="mb-5 flex items-baseline gap-3">
-          <span className="bg-gradient-to-r from-orange-500 to-amber-400 bg-clip-text text-3xl font-extrabold text-transparent">Sipiki</span>
+          <Wordmark size="text-3xl" />
           <span className="rounded-full bg-sky-700 px-2.5 py-0.5 text-[11px] font-bold tracking-wide text-white">ADMIN</span>
         </div>
         <h1 className="text-lg font-extrabold text-slate-900">Ingia kama Msimamizi</h1>
@@ -254,7 +255,8 @@ function LoginScreen({ onSignedIn, notice }) {
           {busy ? <Loader2 size={16} className="animate-spin" /> : <Lock size={16} />} {busy ? "Inaingia..." : "Ingia"}
         </button>
         <Link href="/" className="mt-4 block text-center text-xs text-slate-400 hover:text-slate-600">← Rudi kwenye duka</Link>
-      </form>
+        <MadeBy className="mt-5 text-center" />
+        </form>
     </div>
   );
 }
@@ -499,7 +501,7 @@ function Dashboard({ admin, onSignOut }) {
       <header className="border-b-2 border-orange-500 bg-slate-900">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
           <Link href="/" className="flex items-baseline gap-3">
-            <span className="bg-gradient-to-r from-orange-400 to-yellow-300 bg-clip-text text-2xl font-extrabold text-transparent">Sipiki</span>
+            <Wordmark size="text-2xl" dark />
             <span className="rounded-full bg-sky-700 px-2.5 py-0.5 text-[11px] font-bold tracking-wide text-white">ADMIN</span>
           </Link>
           <div className="flex items-center gap-3">

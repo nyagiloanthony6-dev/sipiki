@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import { Wordmark, MadeBy } from "./Brand";
 import { useEffect, useState, useCallback } from "react";
 import { ArrowLeft, ChevronLeft, ChevronRight, X, Store, Tag, ZoomIn, Loader2, PackageX, ShoppingCart, Check } from "lucide-react";
 import { API_URL, request } from "../lib/adminApi";
@@ -120,7 +121,7 @@ export default function SipikiProduct({ slug }) {
       <header className="border-b border-stone-200 bg-white">
         <div className="mx-auto flex max-w-5xl items-center gap-3 px-4 py-3">
           <Link href="/" className="flex items-center gap-1.5 text-sm font-bold text-orange-600 hover:text-orange-700"><ArrowLeft size={17} /> Rudi dukani</Link>
-          <span className="ml-auto text-lg font-extrabold tracking-tight text-slate-900">SIPIKI</span>
+          <span className="ml-auto"><Wordmark size="text-xl" /></span>
           <button onClick={() => setCartOpen(true)} aria-label="Kikapu" className="flex items-center gap-1.5 rounded-full border border-stone-300 px-3.5 py-1.5 text-sm font-semibold text-slate-700 hover:border-slate-500">
             <ShoppingCart size={15} /> {cart.count}
           </button>

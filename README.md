@@ -157,3 +157,7 @@ Before buying, a customer can see the details of a product and must choose the s
 - **Details table ("Maelezo ya bidhaa"):** the seller adds label/value rows (Brand, Material, Warranty, Fits model, ...). The form suggests fields to match the category (clothes, shoes, phones, beauty, bags, spare parts); the seller can add their own. Up to 20 rows.
 - If the seller removes a size after it was ordered, that order still shows the size it was placed with.
 - Database change: `007_product_details_variants.sql` runs on its own when the API starts. Look for `[db] applying 007_product_details_variants.sql` in the Railway log.
+
+## Look and feel
+
+Sipiki shares a few things with serengeti/labs so the two feel related: the **Geist** font, the lowercase slash logo (`sipiki/`, in `components/Brand.jsx`), and a "Imetengenezwa na serengeti/labs" line in the footer and on the seller and admin sign-in cards. Sipiki keeps its own warm orange. To make the credit a link, set `NEXT_PUBLIC_SERENGETI_URL` in Vercel to the Serengeti Labs website address and redeploy.

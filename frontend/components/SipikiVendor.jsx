@@ -1,5 +1,6 @@
 "use client";
 import { profileFor, COLOR_SUGGESTIONS } from "../lib/productDetails";
+import { Wordmark, MadeBy } from "./Brand";
 import Link from "next/link";
 import { useState, useEffect, useCallback, createContext, useContext, useRef } from "react";
 import {
@@ -53,7 +54,7 @@ function LoginScreen({ onSignedIn, notice }) {
     <div className="flex min-h-screen items-center justify-center bg-slate-900 px-4" style={FONT}>
       <form onSubmit={submit} className="w-full max-w-sm rounded-2xl bg-white p-7 shadow-2xl">
         <div className="mb-5 flex items-baseline gap-3">
-          <span className="bg-gradient-to-r from-orange-500 to-amber-400 bg-clip-text text-3xl font-extrabold text-transparent">Sipiki</span>
+          <Wordmark size="text-3xl" />
           <span className="rounded-full bg-emerald-700 px-2.5 py-0.5 text-[11px] font-bold tracking-wide text-white">MUUZAJI</span>
         </div>
         <h1 className="text-lg font-extrabold text-slate-900">Ingia kwenye Portal yako</h1>
@@ -77,7 +78,8 @@ function LoginScreen({ onSignedIn, notice }) {
           Huna akaunti? <Link href="/register" className="font-bold text-orange-600 hover:underline">Fungua Duka Lako</Link>
         </p>
         <Link href="/" className="mt-2 block text-center text-xs text-slate-400 hover:text-slate-600">← Rudi kwenye duka</Link>
-      </form>
+        <MadeBy className="mt-5 text-center" />
+        </form>
     </div>
   );
 }
@@ -377,7 +379,7 @@ function Shell({ me, onSignOut, children, nav }) {
       <header className="border-b-2 border-orange-500 bg-slate-900">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
           <Link href="/" className="flex items-baseline gap-3">
-            <span className="bg-gradient-to-r from-orange-400 to-yellow-300 bg-clip-text text-2xl font-extrabold text-transparent">Sipiki</span>
+            <Wordmark size="text-2xl" dark />
             <span className="hidden rounded-full bg-emerald-700 px-2.5 py-0.5 text-[11px] font-bold tracking-wide text-white sm:inline">PORTAL YA MUUZAJI</span>
           </Link>
           <div className="flex items-center gap-3">

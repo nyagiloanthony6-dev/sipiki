@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import { Wordmark, MadeBy } from "./Brand";
 import { REGIONS } from "../lib/regions";
 import { useState, useEffect } from "react";
 import {
@@ -563,7 +564,7 @@ function Header() {
     <header className="border-b-2 border-orange-500 bg-slate-900">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
         <Link href="/" className="flex items-baseline gap-3">
-          <span className="bg-gradient-to-r from-orange-400 to-yellow-300 bg-clip-text text-2xl font-extrabold text-transparent">Sipiki</span>
+          <Wordmark size="text-2xl" dark />
           <span className="hidden text-[11px] font-medium tracking-widest text-slate-400 sm:inline">BIASHARA MKONONI</span>
         </Link>
         <p className="text-sm text-slate-300">

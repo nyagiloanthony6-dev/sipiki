@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import { Wordmark, MadeBy } from "./Brand";
 import { useState, useMemo, useEffect, useCallback } from "react";
 import { Search, ChevronDown, Heart, Plus, Minus, X, ShoppingCart, Home, Package, LayoutDashboard, ShieldCheck, Star, ChevronLeft, ChevronRight, ArrowRight, MapPin, Phone, Mail, Truck, ShieldCheck as Shield, Headphones, RotateCcw } from "lucide-react";
 import { API_URL, request } from "../lib/adminApi";
@@ -262,9 +263,7 @@ function Footer({ onSelectCategory, categories }) {
       <div className="mx-auto grid max-w-7xl gap-10 px-6 py-12 sm:grid-cols-2 lg:grid-cols-5">
         <div className="lg:col-span-2">
           <div className="flex items-baseline gap-3">
-            <span className="bg-gradient-to-r from-orange-400 to-yellow-300 bg-clip-text text-3xl font-extrabold text-transparent">
-              Sipiki
-            </span>
+            <Wordmark size="text-3xl" dark />
             <span className="text-[11px] font-medium tracking-widest text-slate-500">BIASHARA MKONONI</span>
           </div>
           <p className="mt-3 max-w-sm text-sm leading-relaxed text-slate-400">
@@ -357,7 +356,7 @@ function Footer({ onSelectCategory, categories }) {
       {/* Payments + legal */}
       <div className="border-t border-slate-800">
         <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 px-6 py-5 text-xs text-slate-500 lg:flex-row">
-          <p>© 2026 Sipiki. Haki zote zimehifadhiwa.</p>
+          <div className="flex flex-col items-center gap-1 lg:items-start"><p>© 2026 Sipiki. Haki zote zimehifadhiwa.</p><MadeBy dark /></div>
 
           <div className="flex flex-wrap items-center justify-center gap-2">
             <span className="mr-1 text-slate-500">Tunakubali:</span>
@@ -487,9 +486,7 @@ export default function SipikiListing() {
       <header className="border-b-2 border-orange-500 bg-slate-900">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-6 py-4">
           <div className="flex items-baseline gap-3">
-            <span className="bg-gradient-to-r from-orange-400 to-yellow-300 bg-clip-text text-2xl font-extrabold text-transparent">
-              Sipiki
-            </span>
+            <Wordmark size="text-2xl" dark />
             <span className="text-[11px] font-medium tracking-widest text-slate-400">BIASHARA MKONONI</span>
           </div>
 
