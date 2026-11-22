@@ -160,4 +160,6 @@ Before buying, a customer can see the details of a product and must choose the s
 
 ## Look and feel
 
-Sipiki shares a few things with serengeti/labs so the two feel related: the **Geist** font, the lowercase slash logo (`sipiki/`, in `components/Brand.jsx`), and a "Imetengenezwa na serengeti/labs" line in the footer and on the seller and admin sign-in cards. Sipiki keeps its own warm orange. To make the credit a link, set `NEXT_PUBLIC_SERENGETI_URL` in Vercel to the Serengeti Labs website address and redeploy.
+Sipiki shares a few things with serengeti/labs so the two feel related: the **Geist** font and an "Imetengenezwa na serengeti/labs" line in the footer and on the seller and admin sign-in cards. Sipiki keeps its own warm orange.
+
+**Logo:** the lowercase wordmark `sipiki` with the three i-dots in orange (`components/Brand.jsx`). **Icon / favicon:** a white "i" with an orange dot on a dark tile (`frontend/app/icon.svg`, `app/apple-icon.png`). Ready-made files for printing, WhatsApp and social media are in `frontend/public/brand/` (light and dark logo, 512px icon, icon SVG). To make the credit a link, set `NEXT_PUBLIC_SERENGETI_URL` in Vercel to the Serengeti Labs website address and redeploy.

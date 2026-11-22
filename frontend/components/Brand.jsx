@@ -3,11 +3,20 @@
 // a lowercase wordmark with a slash, set in Geist. Sipiki keeps its own warm orange.
 // ============================================================================
 
-/** "sipiki/" — `size` is a Tailwind text size class; `dark` is for use on a dark background. */
+/** The i-dot: an orange coin sitting where the dot of an "i" would be. */
+function I() {
+  return (
+    <span className="relative inline-block" aria-hidden="true">
+      ı<span className="absolute rounded-full bg-orange-500" style={{ left: "50%", top: "0.02em", width: "0.17em", height: "0.17em", transform: "translateX(-50%)" }} />
+    </span>
+  );
+}
+
+/** "sipiki" with the three i-dots in orange — `size` is a Tailwind text size class; `dark` is for a dark background. */
 export function Wordmark({ size = "text-2xl", dark = false }) {
   return (
-    <span className={`${size} font-bold lowercase leading-none tracking-tight ${dark ? "text-white" : "text-slate-900"}`} aria-label="Sipiki">
-      sipiki<span className="text-orange-500" aria-hidden="true">/</span>
+    <span className={`${size} inline-block font-bold leading-none tracking-tight ${dark ? "text-white" : "text-slate-900"}`} role="img" aria-label="Sipiki">
+      s<I />p<I />k<I />
     </span>
   );
 }
