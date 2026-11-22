@@ -3,12 +3,14 @@
 // a lowercase wordmark with a slash, set in Geist. Sipiki keeps its own warm orange.
 // ============================================================================
 
-/** The price-tag mark: a sign every market understands. Orange; the hole shows whatever is behind it. */
+/** The price-tag mark: a sign every market understands, pointing down-left. Orange; the hole shows whatever is behind it. */
 export function TagMark({ className = "", style }) {
   return (
     <svg viewBox="0 0 64 64" className={className} style={style} aria-hidden="true" focusable="false">
+      <g transform="translate(64 0) scale(-1 1)">
       <path fillRule="evenodd" fill="#ea580c" d="M10 6 H32 a5 5 0 0 1 3.5 1.5 L57 29 a5 5 0 0 1 0 7 L36 57 a5 5 0 0 1-7 0 L7.5 35.5 A5 5 0 0 1 6 32 V10 a4 4 0 0 1 4-4Z M20 15 a5.5 5.5 0 1 0 0.01 0Z" />
       <path d="M33 35 L41 27 M37 39 L45 31" stroke="#fff" strokeWidth="3.5" strokeLinecap="round" opacity=".9" />
+      </g>
     </svg>
   );
 }
