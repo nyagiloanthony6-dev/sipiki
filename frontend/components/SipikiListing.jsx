@@ -425,21 +425,6 @@ function SellerMenu() {
   );
 }
 
-function NavPill({ icon: Icon, emoji, label, className, href, onClick }) {
-  const cls = `flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold transition ${className}`;
-  const content = (
-    <>
-      {emoji ? <span>{emoji}</span> : Icon ? <Icon size={15} /> : null}
-      {label}
-    </>
-  );
-  return href ? (
-    <Link href={href} className={cls}>{content}</Link>
-  ) : (
-    <button onClick={onClick} className={cls}>{content}</button>
-  );
-}
-
 export default function SipikiListing() {
   const [category, setCategory] = useState("Makundi Yote");
   const [search, setSearch] = useState("");
@@ -533,9 +518,7 @@ export default function SipikiListing() {
               <span data-testid="cart-count" className={`min-w-[1.25rem] rounded-full px-1.5 text-center text-xs font-bold leading-5 ${itemCount > 0 ? "bg-orange-700 text-white" : "bg-white/10 text-slate-200"}`}>{itemCount}</span>
             </button>
           </div>
-          <div className="flex w-full items-center justify-between gap-2 sm:w-auto sm:justify-start">
-            <NavPill onClick={() => comingSoon("Kuingia kwa wateja kunakuja hivi karibuni.", true)} label="Ingia" className="border border-slate-500 text-white hover:border-white" />
-            <NavPill onClick={() => comingSoon("Akaunti za wateja zinakuja hivi karibuni.", true)} label="Jiandikishe" className="bg-orange-700 text-white hover:bg-orange-600" />
+          <div className="flex items-center gap-2">
             <SellerMenu />
           </div>
         </div>
