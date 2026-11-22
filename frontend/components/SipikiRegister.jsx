@@ -563,7 +563,7 @@ function Header() {
   return (
     <header className="border-b-2 border-orange-500 bg-slate-900">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-        <Link href="/" className="flex items-baseline gap-3">
+        <Link href="/" className="flex items-center gap-3">
           <Wordmark size="text-2xl" dark />
           <span className="hidden text-[11px] font-medium tracking-widest text-slate-400 sm:inline">BIASHARA MKONONI</span>
         </Link>

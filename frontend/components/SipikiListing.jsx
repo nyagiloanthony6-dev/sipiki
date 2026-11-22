@@ -262,7 +262,7 @@ function Footer({ onSelectCategory, categories }) {
       {/* Main columns */}
       <div className="mx-auto grid max-w-7xl gap-10 px-6 py-12 sm:grid-cols-2 lg:grid-cols-5">
         <div className="lg:col-span-2">
-          <div className="flex items-baseline gap-3">
+          <div className="flex items-center gap-3">
             <Wordmark size="text-3xl" dark />
             <span className="text-[11px] font-medium tracking-widest text-slate-500">BIASHARA MKONONI</span>
           </div>
@@ -485,7 +485,7 @@ export default function SipikiListing() {
       {/* ---------------- Header ---------------- */}
       <header className="border-b-2 border-orange-500 bg-slate-900">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-6 py-4">
-          <div className="flex items-baseline gap-3">
+          <div className="flex items-center gap-3">
             <Wordmark size="text-2xl" dark />
             <span className="text-[11px] font-medium tracking-widest text-slate-400">BIASHARA MKONONI</span>
           </div>

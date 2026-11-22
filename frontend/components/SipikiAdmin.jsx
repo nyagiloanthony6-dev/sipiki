@@ -234,7 +234,7 @@ function LoginScreen({ onSignedIn, notice }) {
   return (
     <div className="flex min-h-screen items-center justify-center bg-slate-900 px-4" style={{ fontFamily: "'Segoe UI', system-ui, sans-serif" }}>
       <form onSubmit={submit} className="w-full max-w-sm rounded-2xl bg-white p-7 shadow-2xl">
-        <div className="mb-5 flex items-baseline gap-3">
+        <div className="mb-5 flex items-center gap-3">
           <Wordmark size="text-3xl" />
           <span className="rounded-full bg-sky-700 px-2.5 py-0.5 text-[11px] font-bold tracking-wide text-white">ADMIN</span>
         </div>
@@ -500,7 +500,7 @@ function Dashboard({ admin, onSignOut }) {
       {/* ---------------- Header ---------------- */}
       <header className="border-b-2 border-orange-500 bg-slate-900">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
-          <Link href="/" className="flex items-baseline gap-3">
+          <Link href="/" className="flex items-center gap-3">
             <Wordmark size="text-2xl" dark />
             <span className="rounded-full bg-sky-700 px-2.5 py-0.5 text-[11px] font-bold tracking-wide text-white">ADMIN</span>
           </Link>
