@@ -155,7 +155,7 @@ function Stepper({ current }) {
               >
                 {done ? <Check size={18} /> : <Icon size={17} />}
               </span>
-              <span className={`mt-1.5 text-[11px] font-semibold ${active ? "text-orange-600" : done ? "text-emerald-600" : "text-stone-400"}`}>
+              <span className={`mt-1.5 text-[11px] font-semibold ${active ? "text-orange-700" : done ? "text-emerald-600" : "text-stone-400"}`}>
                 {s.label}
               </span>
             </div>
@@ -287,7 +287,7 @@ export default function SipikiRegister() {
             <ol className="mt-8 space-y-4 text-left">
               {[
                 { icon: CheckCircle2, color: "text-emerald-600 bg-emerald-100", title: "Ombi limetumwa", text: "Taarifa na nyaraka zako zimepokelewa." },
-                { icon: Clock, color: "text-orange-600 bg-orange-100", title: "Ukaguzi unaendelea", text: "Tunahakiki nyaraka zako (siku 2–3 za kazi)." },
+                { icon: Clock, color: "text-orange-700 bg-orange-100", title: "Ukaguzi unaendelea", text: "Tunahakiki nyaraka zako (siku 2–3 za kazi)." },
                 { icon: Store, color: "text-slate-500 bg-slate-100", title: "Anza kuuza", text: "Ukiidhinishwa, utapata ujumbe wa SMS na barua pepe." },
               ].map(({ icon: Icon, color, title, text }) => (
                 <li key={title} className="flex items-start gap-3">
@@ -304,7 +304,7 @@ export default function SipikiRegister() {
 
             <Link
               href="/"
-              className="mt-8 block w-full rounded-xl bg-orange-600 py-3 text-center text-sm font-bold text-white transition hover:bg-orange-700"
+              className="mt-8 block w-full rounded-xl bg-orange-700 py-3 text-center text-sm font-bold text-white transition hover:bg-orange-800"
             >
               Rudi Nyumbani
             </Link>
@@ -519,8 +519,8 @@ export default function SipikiRegister() {
                 <label className="flex cursor-pointer items-start gap-3">
                   <input type="checkbox" checked={form.terms} onChange={(e) => set("terms", e.target.checked)} className="mt-1 h-4 w-4 accent-orange-600" />
                   <span className="text-sm text-slate-600">
-                    Nimesoma na nakubali <a href="#" className="font-semibold text-orange-600 underline">Masharti ya Wauzaji</a> na{" "}
-                    <a href="#" className="font-semibold text-orange-600 underline">Sera ya Faragha</a>, ikiwemo kamisheni ya 10% kwa kila mauzo.
+                    Nimesoma na nakubali <a href="#" className="font-semibold text-orange-700 underline">Masharti ya Wauzaji</a> na{" "}
+                    <a href="#" className="font-semibold text-orange-700 underline">Sera ya Faragha</a>, ikiwemo kamisheni ya 10% kwa kila mauzo.
                   </span>
                 </label>
                 {errors.terms && <p className="mt-2 text-xs font-medium text-red-600">{errors.terms}</p>}
@@ -548,7 +548,7 @@ export default function SipikiRegister() {
             <button
               onClick={next}
               disabled={submitting}
-              className="flex items-center gap-1.5 rounded-xl bg-orange-600 px-6 py-2.5 text-sm font-bold text-white transition hover:bg-orange-700 disabled:cursor-wait disabled:opacity-60"
+              className="flex items-center gap-1.5 rounded-xl bg-orange-700 px-6 py-2.5 text-sm font-bold text-white transition hover:bg-orange-800 disabled:cursor-wait disabled:opacity-60"
             >
               {step === STEPS.length - 1 ? (submitting ? "Inatuma..." : "Tuma Ombi") : "Endelea"} <ChevronRight size={16} />
             </button>

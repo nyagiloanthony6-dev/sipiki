@@ -120,7 +120,7 @@ export default function SipikiProduct({ slug }) {
     <div className="min-h-screen bg-stone-50 text-slate-800">
       <header className="border-b border-stone-200 bg-white">
         <div className="mx-auto flex max-w-5xl items-center gap-3 px-4 py-3">
-          <Link href="/" className="flex items-center gap-1.5 text-sm font-bold text-orange-600 hover:text-orange-700"><ArrowLeft size={17} /> Rudi dukani</Link>
+          <Link href="/" className="flex items-center gap-1.5 text-sm font-bold text-orange-700 hover:text-orange-800"><ArrowLeft size={17} /> Rudi dukani</Link>
           <span className="ml-auto"><Wordmark size="text-xl" /></span>
           <button onClick={() => setCartOpen(true)} aria-label="Kikapu" className="flex items-center gap-1.5 rounded-full border border-stone-300 px-3.5 py-1.5 text-sm font-semibold text-slate-700 hover:border-slate-500">
             <ShoppingCart size={15} /> {cart.count}
@@ -136,7 +136,7 @@ export default function SipikiProduct({ slug }) {
             <PackageX size={40} className="mx-auto text-stone-300" />
             <p className="mt-3 font-bold text-slate-800">{state === "missing" ? "Bidhaa hii haipatikani tena" : "Imeshindikana kupakia bidhaa"}</p>
             <p className="mt-1 text-sm text-slate-500">{state === "missing" ? "Huenda imeondolewa na muuzaji." : "Angalia mtandao wako kisha jaribu tena."}</p>
-            <Link href="/" className="mt-4 inline-block rounded-xl bg-orange-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-orange-700">Rudi dukani</Link>
+            <Link href="/" className="mt-4 inline-block rounded-xl bg-orange-700 px-5 py-2.5 text-sm font-bold text-white hover:bg-orange-800">Rudi dukani</Link>
           </div>
         )}
 
@@ -177,7 +177,7 @@ export default function SipikiProduct({ slug }) {
             <div>
               {product.category?.name && <p className="flex items-center gap-1.5 text-xs font-semibold text-slate-500"><Tag size={13} /> {product.category.name}</p>}
               <h1 className="mt-1 text-2xl font-extrabold leading-tight text-slate-900">{product.title}</h1>
-              <p className="mt-3 text-3xl font-extrabold text-orange-600"><span className="text-base font-semibold">TSh </span>{Math.round(product.priceCents / 100).toLocaleString("en-US")}</p>
+              <p className="mt-3 text-3xl font-extrabold text-orange-700"><span className="text-base font-semibold">TSh </span>{Math.round(product.priceCents / 100).toLocaleString("en-US")}</p>
               <p data-testid="stock-pill" className={`mt-2 inline-block rounded-full px-3 py-1 text-xs font-bold ${inStock && left !== 0 && left !== null ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>
                 {!inStock ? "Imeisha" : left === null ? "Chagua saizi / rangi" : left === 0 ? "Imeisha" : `Ipo (${left})`}
               </p>
@@ -239,7 +239,7 @@ export default function SipikiProduct({ slug }) {
                 </div>
               )}
               <div className="mt-6 flex flex-col gap-2 sm:flex-row">
-                <button onClick={() => addToCart(true)} disabled={!inStock} className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-orange-600 py-3 text-sm font-bold text-white hover:bg-orange-700 disabled:cursor-not-allowed disabled:opacity-50">
+                <button onClick={() => addToCart(true)} disabled={!inStock} className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-orange-700 py-3 text-sm font-bold text-white hover:bg-orange-800 disabled:cursor-not-allowed disabled:opacity-50">
                   Agiza Sasa
                 </button>
                 <button onClick={() => addToCart(false)} disabled={!inStock} className="flex flex-1 items-center justify-center gap-2 rounded-xl border-2 border-orange-300 py-3 text-sm font-bold text-orange-700 hover:bg-orange-50 disabled:cursor-not-allowed disabled:opacity-50">

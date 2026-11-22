@@ -24,7 +24,7 @@ const SAMPLE_PRODUCTS = [
   { id: "p5", title: "Kanga la Tanzania 2pcs", vendor: "Mama Fatuma Store", category: "Mavazi", emoji: "🎀", tile: "bg-purple-100", rating: 4.6, reviews: 45, oldPrice: null, price: 18000, badge: { label: "NEW", cls: "bg-blue-600" } },
   { id: "p6", title: "Bluetooth Speaker JBL", vendor: "Tech Hub Kariakoo", category: "Simu na Vifaa", emoji: "🔊", tile: "bg-cyan-100", rating: 4.8, reviews: 93, oldPrice: 120000, price: 85000, badge: { label: "SALE", cls: "bg-red-600" } },
   { id: "p7", title: "Mfuko wa Ngozi Handmade", vendor: "Kariakoo Leather", category: "Mikoba na Vifaa", emoji: "👜", tile: "bg-yellow-100", rating: 4.9, reviews: 77, oldPrice: null, price: 42000, badge: null },
-  { id: "p8", title: "Itel A70 64GB", vendor: "Tech Hub Kariakoo", category: "Simu na Vifaa", emoji: "📲", tile: "bg-indigo-100", rating: 4.5, reviews: 34, oldPrice: 220000, price: 195000, badge: { label: "DEAL", cls: "bg-orange-600" } },
+  { id: "p8", title: "Itel A70 64GB", vendor: "Tech Hub Kariakoo", category: "Simu na Vifaa", emoji: "📲", tile: "bg-indigo-100", rating: 4.5, reviews: 34, oldPrice: 220000, price: 195000, badge: { label: "DEAL", cls: "bg-orange-700" } },
 ];
 
 // ============================================================================
@@ -189,7 +189,7 @@ function CategorySection({ active, onSelect, categories, products }) {
           <p className="text-xs text-slate-500">Chagua kundi ili kuona bidhaa zake</p>
         </div>
         {active !== "Makundi Yote" && (
-          <button onClick={() => onSelect("Makundi Yote")} className="text-sm font-semibold text-orange-600 hover:underline">
+          <button onClick={() => onSelect("Makundi Yote")} className="text-sm font-semibold text-orange-700 hover:underline">
             Ondoa kichujio ✕
           </button>
         )}
@@ -210,7 +210,7 @@ function CategorySection({ active, onSelect, categories, products }) {
               <span className={`flex h-16 w-16 items-center justify-center rounded-full text-3xl transition group-hover:scale-110 ${meta.tile}`}>
                 {meta.emoji}
               </span>
-              <span className={`mt-2 text-sm font-bold leading-tight ${isActive ? "text-orange-600" : "text-slate-800"}`}>{cat}</span>
+              <span className={`mt-2 text-sm font-bold leading-tight ${isActive ? "text-orange-700" : "text-slate-800"}`}>{cat}</span>
               <span className="mt-0.5 text-[11px] text-slate-400">Bidhaa {countFor(cat)}</span>
             </button>
           );
@@ -278,7 +278,7 @@ function Footer({ onSelectCategory, categories }) {
               placeholder="Barua pepe yako"
               className="min-w-0 flex-1 rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-white outline-none placeholder:text-slate-500 focus:border-orange-500"
             />
-            <button className="rounded-lg bg-orange-600 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-500">
+            <button className="rounded-lg bg-orange-700 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-600">
               Jiunge
             </button>
           </form>
@@ -370,6 +370,7 @@ function Footer({ onSelectCategory, categories }) {
           <div className="flex gap-4">
             <a href="#" className="hover:text-amber-300">Masharti ya Matumizi</a>
             <a href="#" className="hover:text-amber-300">Sera ya Faragha</a>
+            <Link href="/admin" className="text-slate-600 hover:text-amber-300">Wafanyakazi</Link>
           </div>
         </div>
       </div>
@@ -395,6 +396,31 @@ function StarRating({ rating, reviews }) {
       </div>
       <span className="font-medium text-slate-700">{rating}</span>
       <span className="text-slate-400">({reviews})</span>
+    </div>
+  );
+}
+
+/** Seller links in one quiet menu, so shoppers see a clean header. */
+function SellerMenu() {
+  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    if (!open) return undefined;
+    const close = (e) => { if (e.key === "Escape" || !e.target.closest?.("[data-seller-menu]")) setOpen(false); };
+    document.addEventListener("click", close); document.addEventListener("keydown", close);
+    return () => { document.removeEventListener("click", close); document.removeEventListener("keydown", close); };
+  }, [open]);
+  const item = "block rounded-lg px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-orange-50 hover:text-orange-800";
+  return (
+    <div className="relative" data-seller-menu>
+      <button onClick={() => setOpen((o) => !o)} aria-expanded={open} aria-haspopup="menu" data-testid="seller-menu-btn" className="flex items-center gap-1 rounded-full px-3 py-2 text-sm font-semibold text-slate-300 hover:bg-white/10 hover:text-white">
+        Muuzaji <ChevronDown size={14} />
+      </button>
+      {open && (
+        <div role="menu" className="absolute right-0 z-40 mt-2 w-52 rounded-xl border border-stone-200 bg-white p-1.5 shadow-xl">
+          <Link role="menuitem" href="/vendor" className={item}>Ingia kwenye Portal</Link>
+          <Link role="menuitem" href="/register" className={item}>Fungua Duka Lako</Link>
+        </div>
+      )}
     </div>
   );
 }
@@ -484,26 +510,33 @@ export default function SipikiListing() {
     <div className="min-h-screen bg-orange-50/40" style={{ fontFamily: "'Segoe UI', system-ui, sans-serif" }}>
       {/* ---------------- Header ---------------- */}
       <header className="border-b-2 border-orange-500 bg-slate-900">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-6 py-4">
-          <div className="flex items-center gap-3">
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-3 gap-y-2 px-6 py-4">
+          <Link href="/" className="mr-auto flex items-center gap-3" aria-label="Sipiki — nyumbani">
             <Wordmark size="text-2xl" dark />
-            <span className="text-[11px] font-medium tracking-widest text-slate-400">BIASHARA MKONONI</span>
-          </div>
+            <span className="hidden text-[11px] font-medium tracking-widest text-slate-400 sm:inline">BIASHARA MKONONI</span>
+          </Link>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <NavPill href="/" emoji="🏠" label="Nyumbani" className="bg-orange-600 text-white hover:bg-orange-500" />
-            <NavPill onClick={() => (API_URL ? setTrack({}) : comingSoon("Toleo la majaribio — ufuatiliaji wa oda hauko wazi."))} emoji="📦" label="Maagizo" className="bg-purple-600 text-white hover:bg-purple-500" />
-            <NavPill href="/vendor" icon={LayoutDashboard} label="Dashboard" className="border border-slate-600 text-slate-200 hover:border-slate-400" />
-            <NavPill href="/admin" icon={ShieldCheck} label="Admin" className="bg-sky-700 text-white hover:bg-sky-600" />
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => (API_URL ? setTrack({}) : comingSoon("Toleo la majaribio — ufuatiliaji wa oda hauko wazi."))}
+              aria-label="Fuatilia Oda"
+              className="flex items-center gap-1.5 rounded-full px-3 py-2 text-sm font-semibold text-slate-300 transition hover:bg-white/10 hover:text-white"
+            >
+              <Package size={16} /> <span className="hidden sm:inline">Fuatilia Oda</span>
+            </button>
             <button
               onClick={() => setCartOpen(true)}
-              className="flex items-center gap-1.5 rounded-full border border-slate-600 px-4 py-2 text-sm font-semibold text-slate-100 hover:border-slate-400"
+              aria-label="Kikapu"
+              className="flex items-center gap-1.5 rounded-full border border-slate-500 px-4 py-2 text-sm font-semibold text-white hover:border-white"
             >
               <ShoppingCart size={15} />
-              {itemCount}
+              <span data-testid="cart-count" className={`min-w-[1.25rem] rounded-full px-1.5 text-center text-xs font-bold leading-5 ${itemCount > 0 ? "bg-orange-700 text-white" : "bg-white/10 text-slate-200"}`}>{itemCount}</span>
             </button>
-            <NavPill onClick={() => comingSoon("Kuingia kwa wateja kunakuja hivi karibuni.", true)} label="Ingia" className="border border-amber-400 text-amber-300 hover:bg-amber-400/10" />
-            <NavPill onClick={() => comingSoon("Akaunti za wateja zinakuja hivi karibuni.", true)} label="Jiandikishe" className="bg-amber-400 text-slate-900 hover:bg-amber-300" />
+          </div>
+          <div className="flex w-full items-center justify-between gap-2 sm:w-auto sm:justify-start">
+            <NavPill onClick={() => comingSoon("Kuingia kwa wateja kunakuja hivi karibuni.", true)} label="Ingia" className="border border-slate-500 text-white hover:border-white" />
+            <NavPill onClick={() => comingSoon("Akaunti za wateja zinakuja hivi karibuni.", true)} label="Jiandikishe" className="bg-orange-700 text-white hover:bg-orange-600" />
+            <SellerMenu />
           </div>
         </div>
       </header>
@@ -549,7 +582,7 @@ export default function SipikiListing() {
             <ChevronDown size={16} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-stone-400" />
           </div>
 
-          <button className="rounded-xl bg-orange-600 px-8 py-2.5 text-sm font-semibold text-white transition hover:bg-orange-700">
+          <button className="rounded-xl bg-orange-700 px-8 py-2.5 text-sm font-semibold text-white transition hover:bg-orange-800">
             Tafuta
           </button>
         </div>
@@ -622,7 +655,7 @@ export default function SipikiListing() {
                       {product.oldPrice && (
                         <p className="text-xs text-slate-400 line-through">{formatPrice(product.oldPrice)}</p>
                       )}
-                      <p className="text-base font-bold text-orange-600">
+                      <p className="text-base font-bold text-orange-700">
                         <span className="text-xs font-semibold">TSh </span>
                         {product.price.toLocaleString("en-US")}
                       </p>
@@ -632,7 +665,7 @@ export default function SipikiListing() {
                       // Sizes/colours: the customer picks them on the product page, so the + button becomes a link there
                       <Link
                         href={`/product/${product.slug}`}
-                        className={`relative z-20 flex h-9 items-center justify-center rounded-lg bg-orange-600 px-3 text-xs font-bold text-white transition hover:bg-orange-700 ${product.inStock === false ? "pointer-events-none opacity-40" : ""}`}
+                        className={`relative z-20 flex h-9 items-center justify-center rounded-lg bg-orange-700 px-3 text-xs font-bold text-white transition hover:bg-orange-800 ${product.inStock === false ? "pointer-events-none opacity-40" : ""}`}
                         aria-label="Chagua saizi au rangi"
                         data-testid="choose-options"
                       >
@@ -642,7 +675,7 @@ export default function SipikiListing() {
                     <button
                       onClick={() => addToCart(product)}
                       disabled={product.inStock === false}
-                      className="flex h-9 w-9 items-center justify-center rounded-lg bg-orange-600 text-white transition hover:bg-orange-700 disabled:cursor-not-allowed disabled:opacity-40"
+                      className="flex h-9 w-9 items-center justify-center rounded-lg bg-orange-700 text-white transition hover:bg-orange-800 disabled:cursor-not-allowed disabled:opacity-40"
                       aria-label="Ongeza kwenye kikapu"
                     >
                       <Plus size={18} />

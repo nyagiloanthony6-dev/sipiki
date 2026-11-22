@@ -71,11 +71,11 @@ function LoginScreen({ onSignedIn, notice }) {
 
         {error && <p role="alert" className="mt-3 text-sm font-medium text-red-600">{error}</p>}
 
-        <button type="submit" disabled={busy} className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-orange-600 py-3 text-sm font-bold text-white transition hover:bg-orange-700 disabled:opacity-60">
+        <button type="submit" disabled={busy} className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-orange-700 py-3 text-sm font-bold text-white transition hover:bg-orange-800 disabled:opacity-60">
           {busy ? <Loader2 size={16} className="animate-spin" /> : <Lock size={16} />} {busy ? "Inaingia..." : "Ingia"}
         </button>
         <p className="mt-4 text-center text-xs text-slate-500">
-          Huna akaunti? <Link href="/register" className="font-bold text-orange-600 hover:underline">Fungua Duka Lako</Link>
+          Huna akaunti? <Link href="/register" className="font-bold text-orange-700 hover:underline">Fungua Duka Lako</Link>
         </p>
         <Link href="/" className="mt-2 block text-center text-xs text-slate-400 hover:text-slate-600">← Rudi kwenye duka</Link>
         <MadeBy className="mt-5 text-center" />
@@ -362,7 +362,7 @@ function NewShop({ me, onSignOut, onCancel, onCreated }) {
 
         <div className="mt-6 flex justify-end gap-2">
           <button type="button" onClick={onCancel} className="rounded-xl px-5 py-3 text-sm font-semibold text-slate-600 hover:bg-stone-100">Ghairi</button>
-          <button type="submit" disabled={busy} className="flex items-center gap-2 rounded-xl bg-orange-600 px-6 py-3 text-sm font-bold text-white hover:bg-orange-700 disabled:opacity-60">
+          <button type="submit" disabled={busy} className="flex items-center gap-2 rounded-xl bg-orange-700 px-6 py-3 text-sm font-bold text-white hover:bg-orange-800 disabled:opacity-60">
             {busy && <Loader2 size={16} className="animate-spin" />} Tuma Ombi la Duka
           </button>
         </div>
@@ -512,7 +512,7 @@ function Dashboard({ me, onSignOut, onRefresh }) {
         <button key={key} onClick={() => setTab(key)}
           className={`flex items-center gap-2 whitespace-nowrap border-b-2 px-4 py-3 text-sm font-semibold transition ${tab === key ? "border-amber-400 text-amber-300" : "border-transparent text-slate-400 hover:text-white"}`}>
           <Icon size={16} /> {label}
-          {count > 0 && <span className="rounded-full bg-orange-600 px-2 py-0.5 text-[11px] font-bold text-white">{count}</span>}
+          {count > 0 && <span className="rounded-full bg-orange-700 px-2 py-0.5 text-[11px] font-bold text-white">{count}</span>}
         </button>
       ))}
     </nav>
@@ -536,7 +536,7 @@ function Dashboard({ me, onSignOut, onRefresh }) {
               <h1 className="text-2xl font-extrabold text-slate-900">Bidhaa Zangu</h1>
               <p className="text-sm text-slate-500">Bidhaa zinazoonekana zinaonyeshwa dukani mara moja.</p>
             </div>
-            <button onClick={() => setEditor({})} className="flex items-center gap-2 rounded-xl bg-orange-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-orange-700">
+            <button onClick={() => setEditor({})} className="flex items-center gap-2 rounded-xl bg-orange-700 px-5 py-2.5 text-sm font-bold text-white hover:bg-orange-800">
               <Plus size={17} /> Ongeza Bidhaa
             </button>
           </div>
@@ -546,7 +546,7 @@ function Dashboard({ me, onSignOut, onRefresh }) {
               <Package size={34} className="mx-auto mb-2 text-stone-400" />
               <p className="font-bold text-slate-700">Bado hujaongeza bidhaa</p>
               <p className="mb-4 text-sm text-slate-400">Ongeza bidhaa yako ya kwanza ili wateja waione.</p>
-              <button onClick={() => setEditor({})} className="rounded-xl bg-orange-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-orange-700">Ongeza Bidhaa</button>
+              <button onClick={() => setEditor({})} className="rounded-xl bg-orange-700 px-5 py-2.5 text-sm font-bold text-white hover:bg-orange-800">Ongeza Bidhaa</button>
             </div>
           ) : (
             <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -565,7 +565,7 @@ function Dashboard({ me, onSignOut, onRefresh }) {
                     <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">{p.category?.name}</p>
                     <h3 className="mt-0.5 truncate text-sm font-extrabold text-slate-900" title={p.title}>{p.title}</h3>
                     <div className="mt-1 flex items-baseline justify-between">
-                      <span className="text-base font-extrabold text-orange-600">{fmt(p.priceTsh)}</span>
+                      <span className="text-base font-extrabold text-orange-700">{fmt(p.priceTsh)}</span>
                       <span className={`text-xs font-semibold ${p.stockQuantity === 0 ? "text-red-600" : "text-slate-500"}`}>{p.stockQuantity === 0 ? "Imeisha" : `Zipo ${p.stockQuantity}`}</span>
                     </div>
                     <div className="mt-3 flex gap-2">
@@ -777,7 +777,7 @@ function Overview({ me, summary, products, onAdd }) {
             </li>
           ))}
         </ul>
-        {!hasProduct && <button onClick={onAdd} className="mt-5 rounded-xl bg-orange-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-orange-700">Ongeza Bidhaa</button>}
+        {!hasProduct && <button onClick={onAdd} className="mt-5 rounded-xl bg-orange-700 px-5 py-2.5 text-sm font-bold text-white hover:bg-orange-800">Ongeza Bidhaa</button>}
       </section>
     </div>
   );
@@ -866,7 +866,7 @@ function CategoriesCard({ me, products, onAuthError, notify, onChanged }) {
           {error && <p role="alert" className="mt-3 text-xs font-medium text-red-600">{error}</p>}
           <div className="mt-4 flex justify-end gap-2">
             <button onClick={() => setEditing(false)} className="rounded-xl px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-stone-100">Ghairi</button>
-            <button onClick={save} disabled={saving || open === null} className="rounded-xl bg-orange-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-orange-700 disabled:opacity-60">Hifadhi</button>
+            <button onClick={save} disabled={saving || open === null} className="rounded-xl bg-orange-700 px-5 py-2.5 text-sm font-bold text-white hover:bg-orange-800 disabled:opacity-60">Hifadhi</button>
           </div>
         </div>
       )}
@@ -1123,7 +1123,7 @@ function ProductEditor({ product, categories, onClose, onSaved, onAuthError }) {
                 ))}
               </div>
               {errors.variants && <p className="mt-1 text-xs font-medium text-red-600">{errors.variants}</p>}
-              <button type="button" onClick={() => addVariant()} data-testid="add-variant" className="mt-2 text-xs font-bold text-orange-600 hover:text-orange-700">+ Ongeza mstari mwingine</button>
+              <button type="button" onClick={() => addVariant()} data-testid="add-variant" className="mt-2 text-xs font-bold text-orange-700 hover:text-orange-800">+ Ongeza mstari mwingine</button>
             </div>
           )}
         </div>
@@ -1150,7 +1150,7 @@ function ProductEditor({ product, categories, onClose, onSaved, onAuthError }) {
               </div>
             ))}
           </div>
-          <button type="button" onClick={() => addSpec()} data-testid="add-spec" className="mt-2 text-xs font-bold text-orange-600 hover:text-orange-700">+ Ongeza maelezo mengine</button>
+          <button type="button" onClick={() => addSpec()} data-testid="add-spec" className="mt-2 text-xs font-bold text-orange-700 hover:text-orange-800">+ Ongeza maelezo mengine</button>
         </div>
 
         <div className="mt-4">
@@ -1204,7 +1204,7 @@ function ProductEditor({ product, categories, onClose, onSaved, onAuthError }) {
 
         <div className="mt-5 flex justify-end gap-2">
           <button onClick={onClose} disabled={saving} className="rounded-xl px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-stone-100">Ghairi</button>
-          <button onClick={save} disabled={saving || categories.length === 0} className="flex items-center gap-2 rounded-xl bg-orange-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-orange-700 disabled:opacity-60">
+          <button onClick={save} disabled={saving || categories.length === 0} className="flex items-center gap-2 rounded-xl bg-orange-700 px-5 py-2.5 text-sm font-bold text-white hover:bg-orange-800 disabled:opacity-60">
             {saving && <Loader2 size={15} className="animate-spin" />} {saving ? "Inahifadhi..." : "Hifadhi"}
           </button>
         </div>

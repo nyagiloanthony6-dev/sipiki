@@ -147,7 +147,7 @@ export function CartDrawer({ open, onClose, cart, onTrack }) {
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-medium text-slate-900">{line.title}</p>
                         {line.variantLabel && <p className="truncate text-xs font-semibold text-slate-600" data-testid="cart-option">{line.variantLabel}</p>}
-                        <p className="text-xs text-orange-600">{fmt(line.price)}</p>
+                        <p className="text-xs text-orange-700">{fmt(line.price)}</p>
                         {line.vendor && <p className="truncate text-[11px] text-slate-400">{line.vendor}</p>}
                       </div>
                       <div className="flex items-center gap-1.5">
@@ -168,7 +168,7 @@ export function CartDrawer({ open, onClose, cart, onTrack }) {
                 </div>
                 <button
                   onClick={() => { setFormError(""); if (!API_URL) { setFormError("Hii ni toleo la majaribio — oda haziwezi kutumwa."); return; } setStep("form"); }}
-                  className="w-full rounded-lg bg-orange-600 py-2.5 text-sm font-semibold text-white hover:bg-orange-700"
+                  className="w-full rounded-lg bg-orange-700 py-2.5 text-sm font-semibold text-white hover:bg-orange-800"
                 >
                   Endelea na Oda
                 </button>
@@ -214,7 +214,7 @@ export function CartDrawer({ open, onClose, cart, onTrack }) {
                 <span className="text-slate-500">Jumla ({cart.count})</span>
                 <span className="text-base font-bold text-slate-900">{fmt(cart.subtotal)}</span>
               </div>
-              <button type="submit" disabled={busy} className="flex w-full items-center justify-center gap-2 rounded-lg bg-orange-600 py-2.5 text-sm font-semibold text-white hover:bg-orange-700 disabled:opacity-60">
+              <button type="submit" disabled={busy} className="flex w-full items-center justify-center gap-2 rounded-lg bg-orange-700 py-2.5 text-sm font-semibold text-white hover:bg-orange-800 disabled:opacity-60">
                 {busy && <Loader2 size={16} className="animate-spin" />} Tuma Oda
               </button>
               <button type="button" onClick={() => setStep("cart")} className="mt-2 w-full text-center text-xs font-semibold text-slate-500 hover:text-slate-800">← Rudi kwenye kikapu</button>
@@ -229,7 +229,7 @@ export function CartDrawer({ open, onClose, cart, onTrack }) {
               <CheckCircle2 size={44} className="mx-auto text-emerald-500" />
               <p className="mt-3 text-lg font-extrabold text-slate-900">Asante! Oda yako imepokelewa</p>
               <p className="mt-1 text-xs text-slate-500">Namba ya oda yako</p>
-              <p className="mt-0.5 select-all font-mono text-2xl font-extrabold tracking-wider text-orange-600" data-testid="order-ref">{placed.ref}</p>
+              <p className="mt-0.5 select-all font-mono text-2xl font-extrabold tracking-wider text-orange-700" data-testid="order-ref">{placed.ref}</p>
               <p className="mt-1 text-xs text-slate-500">Ihifadhi — utaitumia kufuatilia oda.</p>
               <ul className="mt-4 space-y-1 rounded-xl border border-stone-200 p-3 text-left text-sm">
                 {placed.items.map((i, n) => (
@@ -241,7 +241,7 @@ export function CartDrawer({ open, onClose, cart, onTrack }) {
             </div>
             <div className="space-y-2 border-t border-stone-200 px-5 py-4">
               <button onClick={() => { close(); onTrack?.({ ref: placed.ref, phone: placed.phone }); }} className="w-full rounded-lg border border-orange-300 py-2.5 text-sm font-semibold text-orange-700 hover:bg-orange-50">Fuatilia oda</button>
-              <button onClick={close} className="w-full rounded-lg bg-orange-600 py-2.5 text-sm font-semibold text-white hover:bg-orange-700">Endelea Kununua</button>
+              <button onClick={close} className="w-full rounded-lg bg-orange-700 py-2.5 text-sm font-semibold text-white hover:bg-orange-800">Endelea Kununua</button>
             </div>
           </>
         )}
@@ -297,7 +297,7 @@ export function TrackModal({ open, onClose, initial }) {
           <input id="t-ref" value={ref} onChange={(e) => setRef(e.target.value.toUpperCase())} placeholder="SPK-XXXXXX" className="mt-1 w-full rounded-xl border border-stone-300 px-3 py-2.5 font-mono text-sm outline-none focus:border-orange-500" />
           <label htmlFor="t-phone" className="mt-3 block text-sm font-semibold text-slate-800">Namba ya simu uliyotumia kuagiza</label>
           <input id="t-phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="0712 345 678" className="mt-1 w-full rounded-xl border border-stone-300 px-3 py-2.5 text-sm outline-none focus:border-orange-500" />
-          <button type="submit" disabled={busy || !ref.trim() || !phone.trim()} className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-orange-600 py-2.5 text-sm font-bold text-white hover:bg-orange-700 disabled:opacity-60">
+          <button type="submit" disabled={busy || !ref.trim() || !phone.trim()} className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-orange-700 py-2.5 text-sm font-bold text-white hover:bg-orange-800 disabled:opacity-60">
             {busy ? <Loader2 size={16} className="animate-spin" /> : <Search size={16} />} Tafuta
           </button>
         </form>

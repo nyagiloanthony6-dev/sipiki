@@ -160,7 +160,7 @@ function CategoryModal({ vendor, options, onSave, onCancel, busy }) {
         {error && <p className="mt-2 text-xs font-medium text-red-600">{error}</p>}
         <div className="mt-5 flex justify-end gap-2">
           <button onClick={onCancel} className="rounded-xl px-4 py-2.5 text-sm font-semibold text-slate-600 hover:bg-stone-100">Ghairi</button>
-          <button onClick={submit} disabled={busy} className="rounded-xl bg-orange-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-orange-700 disabled:opacity-60">Hifadhi</button>
+          <button onClick={submit} disabled={busy} className="rounded-xl bg-orange-700 px-5 py-2.5 text-sm font-bold text-white hover:bg-orange-800 disabled:opacity-60">Hifadhi</button>
         </div>
       </div>
     </div>
@@ -251,7 +251,7 @@ function LoginScreen({ onSignedIn, notice }) {
 
         {error && <p role="alert" className="mt-3 text-sm font-medium text-red-600">{error}</p>}
 
-        <button type="submit" disabled={busy} className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-orange-600 py-3 text-sm font-bold text-white transition hover:bg-orange-700 disabled:opacity-60">
+        <button type="submit" disabled={busy} className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-orange-700 py-3 text-sm font-bold text-white transition hover:bg-orange-800 disabled:opacity-60">
           {busy ? <Loader2 size={16} className="animate-spin" /> : <Lock size={16} />} {busy ? "Inaingia..." : "Ingia"}
         </button>
         <Link href="/" className="mt-4 block text-center text-xs text-slate-400 hover:text-slate-600">← Rudi kwenye duka</Link>
@@ -524,7 +524,7 @@ function Dashboard({ admin, onSignOut }) {
             >
               <Icon size={16} />
               {label}
-              {count > 0 && <span className="rounded-full bg-orange-600 px-2 py-0.5 text-[11px] font-bold text-white">{count}</span>}
+              {count > 0 && <span className="rounded-full bg-orange-700 px-2 py-0.5 text-[11px] font-bold text-white">{count}</span>}
             </button>
           ))}
         </nav>
@@ -553,7 +553,7 @@ function Dashboard({ admin, onSignOut }) {
               <section className="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
                 <div className="mb-3 flex items-center justify-between">
                   <h2 className="text-base font-extrabold text-slate-900">Maombi ya Hivi Karibuni</h2>
-                  <button onClick={() => setTab("applications")} className="text-sm font-semibold text-orange-600 hover:underline">Tazama yote</button>
+                  <button onClick={() => setTab("applications")} className="text-sm font-semibold text-orange-700 hover:underline">Tazama yote</button>
                 </div>
                 {pending.length === 0 ? (
                   <p className="py-6 text-center text-sm text-slate-400">Hakuna maombi yanayosubiri 🎉</p>
