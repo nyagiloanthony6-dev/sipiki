@@ -70,6 +70,9 @@ against Beem's current documentation first.
 - **"Missing required environment variables"** → the log names the ones to add.
 - **Database errors after editing a `.sql` file** → never edit a migration that was already applied; add a new numbered file in `backend/db/migrations/`.
 
+To see who the admins are (email, name, active or disabled; never passwords), run the same way with `npm run list-admins`.
+To reset an admin's password, run `create-admin` again with that admin's email and type the new password.
+
 ## The admin page
 Open `/admin` on your website and sign in with the admin account from step 5. Admins can review applications
 (including the uploaded documents), approve, reject (with a reason), suspend and reactivate vendors — each action

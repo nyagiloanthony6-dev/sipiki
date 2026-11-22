@@ -9,7 +9,8 @@
     "db:setup": "node scripts/migrate.js",
     "generate": "prisma generate",
     "postinstall": "prisma generate",
-    "create-admin": "node scripts/create-admin.js"
+    "create-admin": "node scripts/create-admin.js",
+    "list-admins": "node scripts/list-admins.js"
   },
   "dependencies": {
     "@prisma/client": "^5.16.0",
