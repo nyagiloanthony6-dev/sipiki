@@ -568,7 +568,7 @@ function Header() {
           <span className="hidden text-[11px] font-medium tracking-widest text-slate-400 sm:inline">BIASHARA MKONONI</span>
         </Link>
         <p className="text-sm text-slate-300">
-          Una akaunti? <a href="#" className="font-bold text-amber-300 hover:underline">Ingia</a>
+          Una akaunti? <Link href="/vendor" className="font-bold text-amber-300 hover:underline">Ingia</Link>
         </p>
       </div>
     </header>
