@@ -519,6 +519,7 @@ export default function SipikiListing() {
             </button>
           </div>
           <div className="flex items-center gap-2">
+            <Link href="/vendor" className="rounded-full border border-slate-500 px-4 py-2 text-sm font-semibold text-white transition hover:border-white">Ingia</Link>
             <SellerMenu />
           </div>
         </div>
