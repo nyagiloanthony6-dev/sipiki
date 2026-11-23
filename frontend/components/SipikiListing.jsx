@@ -174,6 +174,17 @@ const CATEGORY_META = {
   "Mikoba na Vifaa": { emoji: "👜", tile: "bg-yellow-100", ring: "ring-yellow-500" },
 };
 
+// Card colours for the category section. Known categories keep their colour; new ones cycle through the palette.
+const CARD_GRADIENTS = {
+  "Makundi Yote": "from-slate-900 to-slate-700",
+  "Mavazi": "from-blue-600 to-sky-400",
+  "Simu na Vifaa": "from-indigo-600 to-indigo-400",
+  "Viatu": "from-emerald-600 to-emerald-400",
+  "Urembo": "from-pink-600 to-pink-400",
+  "Mikoba na Vifaa": "from-amber-700 to-amber-500",
+};
+const SPARE_GRADIENTS = ["from-teal-600 to-teal-400", "from-violet-600 to-violet-400", "from-rose-600 to-rose-400", "from-cyan-600 to-cyan-400", "from-lime-700 to-lime-500", "from-fuchsia-600 to-fuchsia-400"];
+
 const DEFAULT_META = { emoji: "🛍️", tile: "bg-stone-100", ring: "ring-stone-400" };
 
 function CategorySection({ active, onSelect, categories, products }) {
@@ -195,23 +206,24 @@ function CategorySection({ active, onSelect, categories, products }) {
         )}
       </div>
 
-      <div className="flex gap-3 overflow-x-auto pb-2 sm:grid sm:grid-cols-6 sm:overflow-visible">
-        {categories.map((cat) => {
+      <div className="-mx-6 flex gap-3 overflow-x-auto px-6 pb-3 pt-1 sm:mx-0 sm:grid sm:overflow-visible sm:px-0" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))" }}>
+        {categories.map((cat, i) => {
           const meta = CATEGORY_META[cat] || DEFAULT_META;
           const isActive = active === cat;
+          const grad = CARD_GRADIENTS[cat] || SPARE_GRADIENTS[i % SPARE_GRADIENTS.length];
           return (
             <button
               key={cat}
               onClick={() => onSelect(cat)}
-              className={`group flex min-w-[110px] flex-1 flex-col items-center rounded-2xl border bg-white p-3 text-center transition hover:-translate-y-0.5 hover:shadow-md sm:min-w-0 ${
-                isActive ? `border-transparent ring-2 ${meta.ring} shadow-md` : "border-stone-200"
+              aria-pressed={isActive}
+              data-testid="category-card"
+              className={`group relative flex h-32 min-w-[150px] flex-none flex-col justify-end overflow-hidden rounded-2xl bg-gradient-to-br ${grad} p-4 text-left text-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg sm:min-w-0 ${
+                isActive ? "ring-[3px] ring-slate-900 ring-offset-2 ring-offset-orange-50" : ""
               }`}
             >
-              <span className={`flex h-16 w-16 items-center justify-center rounded-full text-3xl transition group-hover:scale-110 ${meta.tile}`}>
-                {meta.emoji}
-              </span>
-              <span className={`mt-2 text-sm font-bold leading-tight ${isActive ? "text-orange-700" : "text-slate-800"}`}>{cat}</span>
-              <span className="mt-0.5 text-[11px] text-slate-400">Bidhaa {countFor(cat)}</span>
+              <span aria-hidden="true" className="absolute -right-1 top-2 -rotate-12 text-6xl drop-shadow-lg transition group-hover:-rotate-6 group-hover:scale-110">{meta.emoji}</span>
+              <span className="relative text-base font-black leading-tight">{cat}</span>
+              <span className="relative mt-0.5 text-[11px] font-semibold text-white/85">Bidhaa {countFor(cat)}</span>
             </button>
           );
         })}
