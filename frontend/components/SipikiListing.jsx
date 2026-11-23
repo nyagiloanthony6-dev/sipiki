@@ -206,24 +206,22 @@ function CategorySection({ active, onSelect, categories, products }) {
         )}
       </div>
 
-      <div className="-mx-6 flex gap-3 overflow-x-auto px-6 pb-3 pt-1 sm:mx-0 sm:grid sm:overflow-visible sm:px-0" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))" }}>
-        {categories.map((cat, i) => {
+      <div className="-mx-6 flex gap-5 overflow-x-auto px-6 pb-3 pt-1 sm:mx-0 sm:flex-wrap sm:gap-7 sm:overflow-visible sm:px-0">
+        {categories.map((cat) => {
           const meta = CATEGORY_META[cat] || DEFAULT_META;
           const isActive = active === cat;
-          const grad = CARD_GRADIENTS[cat] || SPARE_GRADIENTS[i % SPARE_GRADIENTS.length];
           return (
             <button
               key={cat}
               onClick={() => onSelect(cat)}
               aria-pressed={isActive}
               data-testid="category-card"
-              className={`group relative flex h-32 min-w-[150px] flex-none flex-col justify-end overflow-hidden rounded-2xl bg-gradient-to-br ${grad} p-4 text-left text-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg sm:min-w-0 ${
-                isActive ? "ring-[3px] ring-slate-900 ring-offset-2 ring-offset-orange-50" : ""
-              }`}
+              className="group flex w-20 flex-none flex-col items-center gap-2 text-center sm:w-24"
             >
-              <span aria-hidden="true" className="absolute -right-1 top-2 -rotate-12 text-6xl drop-shadow-lg transition group-hover:-rotate-6 group-hover:scale-110">{meta.emoji}</span>
-              <span className="relative text-base font-black leading-tight">{cat}</span>
-              <span className="relative mt-0.5 text-[11px] font-semibold text-white/85">Bidhaa {countFor(cat)}</span>
+              <span className={`flex h-[68px] w-[68px] items-center justify-center rounded-full border-[3px] text-3xl transition group-hover:scale-105 sm:h-20 sm:w-20 sm:text-4xl ${meta.tile} ${isActive ? "border-orange-600" : "border-transparent"}`}>
+                {meta.emoji}
+              </span>
+              <span className={`text-[13px] font-bold leading-tight ${isActive ? "text-orange-700" : "text-slate-800"}`}>{cat === "Makundi Yote" ? "Yote" : cat}</span>
             </button>
           );
         })}
